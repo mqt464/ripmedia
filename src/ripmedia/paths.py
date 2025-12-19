@@ -39,10 +39,7 @@ def build_output_plan(item: NormalizedItem, *, output_dir: Path, extension: str)
     if item.track_number is not None:
         track_prefix = f"{item.track_number:02d} - "
 
-    if item.kind == MediaKind.TRACK and item.artist and item.title:
-        filename = f"{item.artist} - {item.title}"
-    else:
-        filename = title
+    filename = title
 
     filename_stem = sanitize_path_segment(filename)
     if not extension.startswith("."):

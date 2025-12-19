@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import subprocess
+import tempfile
 
 import requests
 
 from .errors import TagError
-from .model import Attribution, MediaKind, NormalizedItem
+from .model import Attribution, NormalizedItem
 
 
 @dataclass(frozen=True)
@@ -23,7 +25,7 @@ def tag_file(path: Path, item: NormalizedItem) -> TagResult:
     if suffix in {".m4a", ".mp4"}:
         return _tag_mp4(path, item, artwork)
 
-    raise TagError(f"Tagging not implemented for file type: {suffix}", stage="Tagging")
+    return _tag_with_ffmpeg(path, item)
 
 
 @dataclass(frozen=True)
@@ -66,7 +68,7 @@ def _attribution_note(attribution: Attribution | None) -> str | None:
 def _album_title(item: NormalizedItem) -> str | None:
     if item.album:
         return item.album
-    if item.kind == MediaKind.TRACK and item.title:
+    if item.title:
         return item.title
     return None
 
@@ -90,9 +92,6 @@ def _tag_mp3(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
             TPOS,
             TRCK,
         )
-        from mutagen.mp3 import MP3
-
-        audio = MP3(path)
         try:
             tags = ID3(path)
         except ID3NoHeaderError:
@@ -136,7 +135,6 @@ def _tag_mp3(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
             artwork_embedded = True
 
         tags.save(path)
-        audio.save()
         return TagResult(artwork_embedded=artwork_embedded)
     except Exception as e:  # noqa: BLE001
         raise TagError(f"Failed to tag mp3: {e}", stage="Tagging") from e
@@ -178,3 +176,46 @@ def _tag_mp4(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
         return TagResult(artwork_embedded=artwork_embedded)
     except Exception as e:  # noqa: BLE001
         raise TagError(f"Failed to tag mp4/m4a: {e}", stage="Tagging") from e
+
+
+def _tag_with_ffmpeg(path: Path, item: NormalizedItem) -> TagResult:
+    metadata: list[tuple[str, str]] = []
+    if item.title:
+        metadata.append(("title", item.title))
+    if item.artist:
+        metadata.append(("artist", item.artist))
+    album_title = _album_title(item)
+    if album_title:
+        metadata.append(("album", album_title))
+    album_artist = _album_artist(item)
+    if album_artist:
+        metadata.append(("album_artist", album_artist))
+    if item.track_number is not None:
+        metadata.append(("track", str(item.track_number)))
+    if item.disc_number is not None:
+        metadata.append(("disc", str(item.disc_number)))
+    if item.year is not None:
+        metadata.append(("date", str(item.year)))
+
+    if not metadata:
+        return TagResult(artwork_embedded=False)
+
+    args = ["ffmpeg", "-y", "-i", str(path), "-map", "0", "-c", "copy"]
+    for key, value in metadata:
+        args.extend(["-metadata", f"{key}={value}"])
+
+    with tempfile.NamedTemporaryFile(delete=False, dir=path.parent, suffix=path.suffix) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        proc = subprocess.run(args + [str(tmp_path)], capture_output=True, text=True, check=False)
+        if proc.returncode != 0:
+            stderr = proc.stderr.strip() or "ffmpeg failed"
+            raise TagError(f"Failed to tag via ffmpeg: {stderr}", stage="Tagging")
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:  # noqa: BLE001
+                pass
+    return TagResult(artwork_embedded=False)

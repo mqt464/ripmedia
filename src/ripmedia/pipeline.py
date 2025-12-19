@@ -9,7 +9,7 @@ from .errors import MetadataError, PartialSuccessError, RipmediaError
 from .model import Attribution, MediaKind, NormalizedItem, Provider
 from .paths import build_collection_item_plan, build_output_plan, collection_directory
 from .resolver import resolve_candidates
-from .tagger import tag_file
+from .tagger import Artwork, tag_file
 from .ui import Ui
 
 
@@ -115,12 +115,20 @@ def _run_collection(
 
     total = len(item.entries)
     for idx, entry in enumerate(item.entries, start=1):
-        title = entry.title or entry.url
+        working_entry = entry
+        parent_album = item.album or item.title
+        if parent_album and not working_entry.album:
+            working_entry = replace(working_entry, album=parent_album)
+        if item.artist and not working_entry.artist:
+            working_entry = replace(working_entry, artist=item.artist)
+        if item.artwork_url and not working_entry.artwork_url:
+            working_entry = replace(working_entry, artwork_url=item.artwork_url)
+        title = working_entry.title or working_entry.url
         if ui.level != "quiet" and not ui.print_path_only:
             ui.info(f"[dim]{idx}/{total}[/dim] {title}")
         try:
             saved_path = _run_single(
-                entry,
+                working_entry,
                 output_dir=folder,
                 audio=audio,
                 override_audio_format=override_audio_format,
@@ -295,7 +303,10 @@ def _run_single(
 
     ui.stage("Tagging", None)
     try:
-        tag_file(result.downloaded_path, working_item)
+        artwork_override = None
+        if result.artwork_bytes:
+            artwork_override = Artwork(bytes=result.artwork_bytes, mime=result.artwork_mime)
+        tag_file(result.downloaded_path, working_item, artwork_override=artwork_override)
     except RipmediaError as e:
         ui.verbose(f"Tagging skipped/failed: {e}")
     return result.downloaded_path

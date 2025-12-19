@@ -16,9 +16,17 @@ class TagResult:
     artwork_embedded: bool
 
 
-def tag_file(path: Path, item: NormalizedItem) -> TagResult:
+def tag_file(
+    path: Path,
+    item: NormalizedItem,
+    *,
+    artwork_override: Artwork | None = None,
+) -> TagResult:
     suffix = path.suffix.lower()
-    artwork = _download_artwork(item.artwork_url) if item.artwork_url else None
+    if artwork_override is not None:
+        artwork = artwork_override
+    else:
+        artwork = _download_artwork(item.artwork_url, referer=item.url) if item.artwork_url else None
 
     if suffix == ".mp3":
         return _tag_mp3(path, item, artwork)
@@ -31,12 +39,15 @@ def tag_file(path: Path, item: NormalizedItem) -> TagResult:
 @dataclass(frozen=True)
 class Artwork:
     bytes: bytes
-    mime: str
+    mime: str | None
 
 
-def _download_artwork(url: str) -> Artwork | None:
+def _download_artwork(url: str, *, referer: str | None = None) -> Artwork | None:
     try:
-        resp = requests.get(url, timeout=20, headers={"User-Agent": "ripmedia/0.1"})
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        if referer:
+            headers["Referer"] = referer
+        resp = requests.get(url, timeout=20, headers=headers)
         resp.raise_for_status()
         mime = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
         blob = resp.content
@@ -52,7 +63,82 @@ def _sniff_mime(blob: bytes) -> str | None:
         return "image/png"
     if blob.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
+    if blob[:4] == b"RIFF" and blob[8:12] == b"WEBP":
+        return "image/webp"
+    if blob.startswith(b"GIF87a") or blob.startswith(b"GIF89a"):
+        return "image/gif"
     return None
+
+
+def _mime_extension(mime: str) -> str:
+    mapping = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/avif": ".avif",
+        "image/heic": ".heic",
+    }
+    return mapping.get(mime, ".img")
+
+
+def _coerce_artwork(artwork: Artwork) -> Artwork:
+    mime = artwork.mime or _sniff_mime(artwork.bytes) or "image/jpeg"
+    return Artwork(bytes=artwork.bytes, mime=mime)
+
+
+def _convert_artwork_to_jpeg(artwork: Artwork) -> Artwork | None:
+    input_ext = _mime_extension(artwork.mime)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=input_ext) as tmp_in:
+        tmp_in.write(artwork.bytes)
+        in_path = Path(tmp_in.name)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_out:
+        out_path = Path(tmp_out.name)
+    try:
+        proc = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(in_path),
+                "-frames:v",
+                "1",
+                "-q:v",
+                "2",
+                str(out_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0 or not out_path.exists():
+            return None
+        data = out_path.read_bytes()
+        return Artwork(bytes=data, mime="image/jpeg")
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        for p in (in_path, out_path):
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:  # noqa: BLE001
+                    pass
+
+
+def _prepare_artwork(artwork: Artwork | None, *, target: str) -> Artwork | None:
+    if artwork is None:
+        return None
+    artwork = _coerce_artwork(artwork)
+    if target == "mp4":
+        if artwork.mime in {"image/jpeg", "image/png"}:
+            return artwork
+        return _convert_artwork_to_jpeg(artwork)
+    if artwork.mime in {"image/jpeg", "image/png"}:
+        return artwork
+    converted = _convert_artwork_to_jpeg(artwork)
+    return converted or artwork
 
 
 def _attribution_note(attribution: Attribution | None) -> str | None:
@@ -118,6 +204,7 @@ def _tag_mp3(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
         if note:
             tags.setall("COMM", [COMM(encoding=3, lang="eng", desc="ripmedia", text=note)])
 
+        artwork = _prepare_artwork(artwork, target="mp3")
         artwork_embedded = False
         if artwork:
             tags.setall(
@@ -134,7 +221,7 @@ def _tag_mp3(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
             )
             artwork_embedded = True
 
-        tags.save(path)
+        tags.save(path, v2_version=3)
         return TagResult(artwork_embedded=artwork_embedded)
     except Exception as e:  # noqa: BLE001
         raise TagError(f"Failed to tag mp3: {e}", stage="Tagging") from e
@@ -166,6 +253,7 @@ def _tag_mp4(path: Path, item: NormalizedItem, artwork: Artwork | None) -> TagRe
         if note:
             mp4["\xa9cmt"] = [note]
 
+        artwork = _prepare_artwork(artwork, target="mp4")
         artwork_embedded = False
         if artwork:
             fmt = MP4Cover.FORMAT_PNG if artwork.mime == "image/png" else MP4Cover.FORMAT_JPEG

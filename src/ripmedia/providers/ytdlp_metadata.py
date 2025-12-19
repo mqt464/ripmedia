@@ -21,7 +21,7 @@ def fetch_ytdlp_metadata(url: str, *, provider: Provider) -> NormalizedItem:
     kind = _guess_kind(info)
     title = info.get("title")
     duration = info.get("duration")
-    thumbnail = info.get("thumbnail")
+    thumbnail = _pick_thumbnail(info)
 
     artist = info.get("artist") or info.get("uploader") or info.get("channel")
     album = info.get("album")
@@ -77,6 +77,19 @@ def _minimize_info(info: dict[str, Any]) -> dict[str, Any]:
         "thumbnail",
     }
     return {k: info.get(k) for k in keep if k in info}
+
+
+def _pick_thumbnail(info: dict[str, Any]) -> str | None:
+    thumb = info.get("thumbnail")
+    if thumb:
+        return str(thumb)
+    thumbs = info.get("thumbnails")
+    if not isinstance(thumbs, list):
+        return None
+    for t in reversed(thumbs):
+        if isinstance(t, dict) and t.get("url"):
+            return str(t["url"])
+    return None
 
 
 def _extract_entries(provider: Provider, info: dict[str, Any]) -> list[NormalizedItem] | None:

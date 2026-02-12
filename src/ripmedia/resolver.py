@@ -8,17 +8,7 @@ from yt_dlp import YoutubeDL
 
 from .errors import ResolveError
 from .model import NormalizedItem, Provider
-
-
-class _NoopLogger:
-    def debug(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def warning(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def error(self, msg: str) -> None:  # noqa: D401
-        pass
+from .shared import NoopLogger
 
 
 @dataclass(frozen=True)
@@ -94,7 +84,7 @@ def _resolve_candidates_from_search(
                 "skip_download": True,
                 "extract_flat": "in_playlist",
                 "no_warnings": True,
-                "logger": _NoopLogger(),
+                "logger": NoopLogger(),
             }
         ) as ydl:
             for search in search_queries:

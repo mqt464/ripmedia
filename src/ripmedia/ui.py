@@ -22,6 +22,7 @@ from rich.text import Text
 from rich.markup import escape
 
 from .model import LogLevel
+from .shared import format_duration, format_speed
 
 
 @dataclass
@@ -220,7 +221,7 @@ def _format_step(step: StepResult) -> str:
     badge = "[green]OK[/green]" if step.ok else "[red]FAIL[/red]"
     extras: list[str] = []
     if step.duration_s is not None:
-        extras.append(f"[dim]{_format_duration(step.duration_s)}[/dim]")
+        extras.append(f"[dim]{format_duration(step.duration_s)}[/dim]")
     if step.detail and (
         not step.ok or step.detail.lower().startswith("skipped") or step.label.lower() == "saved"
     ):
@@ -228,17 +229,6 @@ def _format_step(step: StepResult) -> str:
     extra_text = f" {' | '.join(extras)}" if extras else ""
     label = _shorten(step.label, 48)
     return f"{badge} {label}{extra_text}"
-
-
-def _format_duration(seconds: float) -> str:
-    total = int(round(seconds))
-    if total < 0:
-        total = 0
-    mins, secs = divmod(total, 60)
-    hours, mins = divmod(mins, 60)
-    if hours:
-        return f"{hours}:{mins:02d}:{secs:02d}"
-    return f"{mins:02d}:{secs:02d}"
 
 
 def _format_bytes_parts(value: float) -> tuple[str, str]:
@@ -306,13 +296,7 @@ class _SpeedColumn(ProgressColumn):
         speed = task.speed
         if speed is None or speed <= 0:
             return Text("")
-        if self._unit == "Mbps":
-            value = (speed * 8) / 1_000_000
-            suffix = "Mb/s"
-        else:
-            value = speed / 1_000_000
-            suffix = "MB/s"
-        return Text(f"{value:>5.1f} {suffix}", style="progress.data.speed")
+        return Text(format_speed(speed, self._unit), style="progress.data.speed")
 
 
 def _render_live(progress: Progress, log_lines: list[str], current_line: str) -> Group:

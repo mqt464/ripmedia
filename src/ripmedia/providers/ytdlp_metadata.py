@@ -8,18 +8,7 @@ from pathlib import Path
 
 from ..errors import MetadataError
 from ..model import MediaKind, NormalizedItem, Provider
-from ..ytdlp_utils import normalize_cookies_from_browser
-
-
-class _NoopLogger:
-    def debug(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def warning(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def error(self, msg: str) -> None:  # noqa: D401
-        pass
+from ..shared import NoopLogger, apply_cookie_options
 
 
 def fetch_ytdlp_metadata(
@@ -35,14 +24,13 @@ def fetch_ytdlp_metadata(
             "skip_download": True,
             "noplaylist": False,
             "no_warnings": True,
-            "logger": _NoopLogger(),
+            "logger": NoopLogger(),
         }
-        if cookies is not None:
-            ydl_opts["cookiefile"] = str(cookies)
-        else:
-            cookies_spec = normalize_cookies_from_browser(cookies_from_browser)
-            if cookies_spec:
-                ydl_opts["cookiesfrombrowser"] = cookies_spec
+        apply_cookie_options(
+            ydl_opts,
+            cookies=cookies,
+            cookies_from_browser=cookies_from_browser,
+        )
 
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)

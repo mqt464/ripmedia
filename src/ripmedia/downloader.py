@@ -10,7 +10,7 @@ from yt_dlp import YoutubeDL
 
 from .errors import DownloadError
 from .paths import OutputPlan, ensure_unique_path
-from .ytdlp_utils import normalize_cookies_from_browser
+from .shared import NoopLogger, apply_cookie_options, image_mime_from_ext, sniff_image_mime
 
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".avif", ".heic"}
 
@@ -21,17 +21,6 @@ class DownloadResult:
     info: dict[str, Any]
     artwork_bytes: bytes | None = None
     artwork_mime: str | None = None
-
-
-class _NoopLogger:
-    def debug(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def warning(self, msg: str) -> None:  # noqa: D401
-        pass
-
-    def error(self, msg: str) -> None:  # noqa: D401
-        pass
 
 
 def download_with_ytdlp(
@@ -60,15 +49,14 @@ def download_with_ytdlp(
             "no_warnings": not debug,
             "progress_hooks": [on_progress] if on_progress else [],
             "postprocessor_hooks": [on_postprocess] if on_postprocess else [],
-            "logger": None if debug else _NoopLogger(),
+            "logger": None if debug else NoopLogger(),
             "writethumbnail": True,
         }
-        if cookies is not None:
-            ydl_opts["cookiefile"] = str(cookies)
-        else:
-            cookies_spec = normalize_cookies_from_browser(cookies_from_browser)
-            if cookies_spec:
-                ydl_opts["cookiesfrombrowser"] = cookies_spec
+        apply_cookie_options(
+            ydl_opts,
+            cookies=cookies,
+            cookies_from_browser=cookies_from_browser,
+        )
 
         if audio:
             # Prefer stable container. yt-dlp will still select whatever stream is best, but
@@ -157,23 +145,8 @@ def _load_thumbnail_bytes(tmp_dir: Path) -> tuple[bytes | None, str | None]:
         blob = best.read_bytes()
     except Exception:  # noqa: BLE001
         return None, None
-    mime = _sniff_image_mime(blob) or _mime_from_ext(best.suffix)
+    mime = sniff_image_mime(blob) or image_mime_from_ext(best.suffix)
     return blob, mime
-
-
-def _mime_from_ext(ext: str) -> str | None:
-    ext = ext.lower()
-    mapping = {
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
-        ".gif": "image/gif",
-        ".bmp": "image/bmp",
-        ".avif": "image/avif",
-        ".heic": "image/heic",
-    }
-    return mapping.get(ext)
 
 
 def _is_media_file(path: Path) -> bool:
@@ -191,15 +164,3 @@ def _clean_ytdlp_error(err: Exception) -> str:
     if "ERROR:" in text:
         return text.replace("ERROR:", "").strip()
     return text
-
-
-def _sniff_image_mime(blob: bytes) -> str | None:
-    if blob.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if blob.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if blob[:4] == b"RIFF" and blob[8:12] == b"WEBP":
-        return "image/webp"
-    if blob.startswith(b"GIF87a") or blob.startswith(b"GIF89a"):
-        return "image/gif"
-    return None

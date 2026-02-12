@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import queue
-import subprocess
 import sys
 import threading
 import webbrowser
@@ -23,6 +21,7 @@ from rich.console import Console
 from .errors import RipmediaError
 from .model import NormalizedItem
 from .pipeline import run_download
+from .shared import format_speed, open_with_default_app
 from .ui import StepResult, Ui
 from .urls import expand_url_args
 
@@ -168,7 +167,7 @@ class DownloadManager:
             except (TypeError, ValueError):
                 speed_value = None
             if speed_value is not None:
-                data["speed_display"] = _format_speed(speed_value, self._settings.speed_unit)
+                data["speed_display"] = format_speed(speed_value, self._settings.speed_unit)
                 data["speed_unit"] = self._settings.speed_unit
         item = self._update(item_id, progress=data)
         if item:
@@ -420,24 +419,8 @@ def _load_assets() -> dict[str, tuple[bytes, str]]:
     }
 
 
-def _format_speed(speed_bps: float, unit: str) -> str:
-    if unit == "Mbps":
-        value = (float(speed_bps) * 8) / 1_000_000
-        suffix = "Mb/s"
-    else:
-        value = float(speed_bps) / 1_000_000
-        suffix = "MB/s"
-    return f"{value:>5.1f} {suffix}"
-
-
 def _open_in_explorer(path: Path) -> None:
-    target = path if path.is_dir() else path.parent
-    if os.name == "nt":
-        os.startfile(str(target))
-    elif sys.platform == "darwin":
-        subprocess.run(["open", str(target)], check=False)
-    else:
-        subprocess.run(["xdg-open", str(target)], check=False)
+    open_with_default_app(path, reveal_parent=True)
 
 
 def _is_safe_path(base: Path, target: Path) -> bool:

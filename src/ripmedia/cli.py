@@ -19,8 +19,9 @@ from .model import LogLevel
 from .pipeline import run_download, run_info
 from .urls import expand_url_args
 from .cookies import CookieProfile, discover_cookie_profiles, format_cookie_spec
-from .ytdlp_utils import normalize_cookies_from_browser
 from .plugin_system import HookContext, load_plugins, get_plugin_dir
+from .shared import NoopLogger
+from .ytdlp_utils import normalize_cookies_from_browser
 
 
 class DefaultToDownloadGroup(typer.core.TyperGroup):
@@ -239,6 +240,20 @@ def _normalize_format(value: str | None, *, param_hint: str) -> str | None:
     return v
 
 
+def _normalize_resolver(value: str, *, strict: bool) -> str:
+    resolver_norm = str(value).strip().lower()
+    if resolver_norm in {"yt", "youtube"}:
+        return "youtube"
+    if resolver_norm in {"sc", "soundcloud"}:
+        return "soundcloud"
+    if strict:
+        raise typer.BadParameter(
+            "Invalid --resolver. Use 'youtube' or 'soundcloud'.",
+            param_hint="--resolver",
+        )
+    return "youtube"
+
+
 def _print_help(console: Console) -> None:
     console.print("ripmedia — metadata-first media ingestion CLI.")
     console.print("")
@@ -438,7 +453,7 @@ def _run_cookies_refresh(ctx: typer.Context, *, no_color: bool) -> None:
                     "cookiesfrombrowser": selected.spec,
                     "quiet": True,
                     "no_warnings": True,
-                    "logger": _QuietLogger(),
+                    "logger": NoopLogger(),
                 }
             )
             jar = ydl.cookiejar
@@ -679,17 +694,6 @@ def _send_file(webhook: str, path: Path) -> None:
     return textwrap.dedent(template).lstrip()
 
 
-class _QuietLogger:
-    def debug(self, msg: str) -> None:  # noqa: D401
-        return
-
-    def warning(self, msg: str) -> None:  # noqa: D401
-        return
-
-    def error(self, msg: str) -> None:  # noqa: D401
-        return
-
-
 def _clean_cookie_error(message: str) -> str:
     msg = message.replace("ERROR:", "").strip()
     lower = msg.lower()
@@ -743,13 +747,7 @@ def webhost(
     if port is None:
         port = int(web_port) if isinstance(web_port, int) else 0
 
-    resolver_norm = str(resolver).strip().lower()
-    if resolver_norm in {"yt", "youtube"}:
-        resolver_norm = "youtube"
-    elif resolver_norm in {"sc", "soundcloud"}:
-        resolver_norm = "soundcloud"
-    else:
-        resolver_norm = "youtube"
+    resolver_norm = _normalize_resolver(str(resolver), strict=False)
 
     settings = WebSettings(
         output_dir=output_dir,
@@ -831,16 +829,7 @@ def download(
     if override_audio_format:
         audio = True
 
-    resolver_norm = str(resolver).strip().lower()
-    if resolver_norm in {"yt", "youtube"}:
-        resolver_norm = "youtube"
-    elif resolver_norm in {"sc", "soundcloud"}:
-        resolver_norm = "soundcloud"
-    else:
-        raise typer.BadParameter(
-            "Invalid --resolver. Use 'youtube' or 'soundcloud'.",
-            param_hint="--resolver",
-        )
+    resolver_norm = _normalize_resolver(str(resolver), strict=True)
 
     ui = _make_ui(
         level=_level_from_flags(quiet=quiet, verbose=verbose, debug=debug),

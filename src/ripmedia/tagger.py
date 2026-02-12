@@ -9,6 +9,7 @@ import requests
 
 from .errors import TagError
 from .model import Attribution, NormalizedItem
+from .shared import image_ext_from_mime, sniff_image_mime
 
 
 @dataclass(frozen=True)
@@ -52,37 +53,18 @@ def _download_artwork(url: str, *, referer: str | None = None) -> Artwork | None
         mime = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
         blob = resp.content
         if not mime:
-            mime = _sniff_mime(blob) or "image/jpeg"
+            mime = sniff_image_mime(blob) or "image/jpeg"
         return Artwork(bytes=blob, mime=mime)
     except Exception:  # noqa: BLE001
         return None
 
 
-def _sniff_mime(blob: bytes) -> str | None:
-    if blob.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if blob.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if blob[:4] == b"RIFF" and blob[8:12] == b"WEBP":
-        return "image/webp"
-    if blob.startswith(b"GIF87a") or blob.startswith(b"GIF89a"):
-        return "image/gif"
-    return None
-
-
 def _mime_extension(mime: str) -> str:
-    mapping = {
-        "image/jpeg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
-        "image/avif": ".avif",
-        "image/heic": ".heic",
-    }
-    return mapping.get(mime, ".img")
+    return image_ext_from_mime(mime)
 
 
 def _coerce_artwork(artwork: Artwork) -> Artwork:
-    mime = artwork.mime or _sniff_mime(artwork.bytes) or "image/jpeg"
+    mime = artwork.mime or sniff_image_mime(artwork.bytes) or "image/jpeg"
     return Artwork(bytes=artwork.bytes, mime=mime)
 
 

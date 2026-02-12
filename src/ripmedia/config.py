@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
-import sys
 from pathlib import Path
+
+from .shared import open_with_default_app
 
 _BOOL_TRUE = {"1", "true", "yes", "on"}
 _BOOL_FALSE = {"0", "false", "no", "off"}
@@ -204,9 +204,4 @@ def _default_config_values() -> dict[str, str]:
 
 def open_config(path: Path) -> None:
     ensure_config_file(path)
-    if sys.platform.startswith("win"):
-        os.startfile(str(path))
-    elif sys.platform == "darwin":
-        subprocess.run(["open", str(path)], check=False)
-    else:
-        subprocess.run(["xdg-open", str(path)], check=False)
+    open_with_default_app(path, reveal_parent=False)

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from time import monotonic
 
+from .shared import format_duration
 from .ui import StepResult, Ui
 
 
@@ -25,7 +26,7 @@ def run_update(*, ui: Ui, install_system: bool, git_pull: bool) -> int:
 
     all_ok = all(step.ok for step in results)
     if all_ok:
-        ui.info(f"[green]Update complete in {_format_duration(elapsed)}.[/green]")
+        ui.info(f"[green]Update complete in {format_duration(elapsed)}.[/green]")
         return 0
 
     ui.error("Update finished with issues.")
@@ -175,13 +176,3 @@ def _run_cmd(cmd: list[str]) -> tuple[bool, str | None]:
         return True, last_line if last_line else None
     return True, None
 
-
-def _format_duration(seconds: float) -> str:
-    total = int(round(seconds))
-    if total < 0:
-        total = 0
-    mins, secs = divmod(total, 60)
-    hours, mins = divmod(mins, 60)
-    if hours:
-        return f"{hours}:{mins:02d}:{secs:02d}"
-    return f"{mins:02d}:{secs:02d}"

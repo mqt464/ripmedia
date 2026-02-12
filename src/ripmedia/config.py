@@ -18,6 +18,7 @@ _BOOL_KEYS = {
     "interactive",
     "prefer_mp3_mp4",
     "show_file_size",
+    "update_from_github",
 }
 _PATH_KEYS = {"output_dir", "cookies"}
 _FORMAT_OVERRIDE_KEYS = {"override_audio_format", "override_video_format"}
@@ -38,6 +39,7 @@ def _default_config_text() -> str:
         "override_video_format=false\n"
         "prefer_mp3_mp4=true\n"
         "show_file_size=false\n"
+        "update_from_github=true\n"
         "speed_unit=MBps\n"
         "resolver=youtube\n"
         "audio=false\n"

@@ -134,6 +134,13 @@ GitPullOption = Annotated[
     bool,
     typer.Option("--git-pull/--no-git-pull", help="Pull latest changes if running from git."),
 ]
+GithubUpdateOption = Annotated[
+    bool,
+    typer.Option(
+        "--github-update/--no-github-update",
+        help="Install ripmedia updates from GitHub (disable for local development).",
+    ),
+]
 
 
 @app.callback()
@@ -898,8 +905,10 @@ def info(
 
 @app.command()
 def update(
+    ctx: typer.Context,
     install_system: InstallSystemOption = True,
     git_pull: GitPullOption = True,
+    github_update: GithubUpdateOption = True,
     verbose: VerboseOption = False,
     debug: DebugOption = False,
     quiet: QuietOption = False,
@@ -908,14 +917,20 @@ def update(
 ) -> None:
     from .update import run_update
 
-    speed_unit = coerce_value("speed_unit", str(_resolve_option(None, "speed_unit", speed_unit))) or "MBps"
+    github_update = bool(_resolve_option(ctx, "update_from_github", github_update))
+    speed_unit = coerce_value("speed_unit", str(_resolve_option(ctx, "speed_unit", speed_unit))) or "MBps"
     ui = _make_ui(
         level=_level_from_flags(quiet=quiet, verbose=verbose, debug=debug),
         no_color=no_color,
         print_path_only=False,
         speed_unit=speed_unit,
     )
-    code = run_update(ui=ui, install_system=install_system, git_pull=git_pull)
+    code = run_update(
+        ui=ui,
+        install_system=install_system,
+        git_pull=git_pull,
+        update_from_github=github_update,
+    )
     raise typer.Exit(code)
 
 

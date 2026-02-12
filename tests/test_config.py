@@ -33,6 +33,7 @@ def test_coerce_value_bool_and_path() -> None:
     assert coerce_value("audio", "0") is False
     assert coerce_value("audio", "none") is None
     assert coerce_value("prefer_mp3_mp4", "false") is False
+    assert coerce_value("update_from_github", "false") is False
     assert coerce_value("resolver", "youtube") == "youtube"
     assert coerce_value("override_audio_format", "false") is None
     assert coerce_value("override_audio_format", ".MP3") == "mp3"

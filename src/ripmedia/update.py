@@ -10,14 +10,30 @@ from time import monotonic
 from .shared import format_duration
 from .ui import StepResult, Ui
 
+_GITHUB_INSTALL_URL = "git+https://github.com/mqt464/ripmedia.git"
 
-def run_update(*, ui: Ui, install_system: bool, git_pull: bool) -> int:
+
+def run_update(
+    *,
+    ui: Ui,
+    install_system: bool,
+    git_pull: bool,
+    update_from_github: bool,
+) -> int:
     root = _find_repo_root()
 
     steps: list[tuple[str, callable]] = []
     if git_pull:
-        steps.append(("Git pull", lambda: _run_git_pull(ui, root)))
-    steps.append(("Python package", lambda: _update_python_packages(root)))
+        if update_from_github:
+            steps.append(("Git pull", lambda: _run_git_pull(ui, root)))
+        else:
+            steps.append(("Git pull", _skip_git_pull))
+    steps.append(
+        (
+            "Python package",
+            lambda: _update_python_packages(root, update_from_github=update_from_github),
+        )
+    )
     steps.append(("yt-dlp", _update_ytdlp))
     steps.append(("System deps", lambda: _ensure_system_deps(install_system=install_system)))
     start = monotonic()
@@ -52,11 +68,19 @@ def _run_git_pull(ui: Ui, root: Path | None) -> StepResult:
     return StepResult("Git pull", ok, detail)
 
 
-def _update_python_packages(root: Path | None) -> StepResult:
+def _skip_git_pull() -> StepResult:
+    return StepResult("Git pull", True, "skipped (github updates disabled)")
+
+
+def _update_python_packages(root: Path | None, *, update_from_github: bool) -> StepResult:
     if root:
         ok, detail = _run_cmd([sys.executable, "-m", "pip", "install", "-e", str(root)])
         return StepResult("Python package", ok, detail)
-    ok, detail = _run_cmd([sys.executable, "-m", "pip", "install", "-U", "ripmedia"])
+
+    if not update_from_github:
+        return StepResult("Python package", True, "skipped (github updates disabled)")
+
+    ok, detail = _run_cmd([sys.executable, "-m", "pip", "install", "-U", _GITHUB_INSTALL_URL])
     return StepResult("Python package", ok, detail)
 
 
@@ -175,4 +199,3 @@ def _run_cmd(cmd: list[str]) -> tuple[bool, str | None]:
         last_line = proc.stdout.strip().splitlines()[-1]
         return True, last_line if last_line else None
     return True, None
-

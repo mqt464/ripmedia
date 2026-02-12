@@ -100,16 +100,18 @@ def _convert_artwork_to_jpeg(artwork: Artwork) -> Artwork | None:
                 "-y",
                 "-loglevel",
                 "error",
-                "-i",
-                str(in_path),
-                "-frames:v",
-                "1",
-                "-q:v",
-                "2",
-                str(out_path),
+                    "-i",
+                    str(in_path),
+                    "-frames:v",
+                    "1",
+                    "-q:v",
+                    "2",
+                    str(out_path),
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if proc.returncode != 0 or not out_path.exists():
@@ -295,7 +297,17 @@ def _tag_with_ffmpeg(path: Path, item: NormalizedItem) -> TagResult:
     with tempfile.NamedTemporaryFile(delete=False, dir=path.parent, suffix=path.suffix) as tmp:
         tmp_path = Path(tmp.name)
     try:
-        proc = subprocess.run(args + [str(tmp_path)], capture_output=True, text=True, check=False)
+        try:
+            proc = subprocess.run(
+                args + [str(tmp_path)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+        except FileNotFoundError as e:
+            raise TagError("ffmpeg not found. Install ffmpeg and ensure it's on PATH.", stage="Tagging") from e
         if proc.returncode != 0:
             stderr = proc.stderr.strip() or "ffmpeg failed"
             raise TagError(f"Failed to tag via ffmpeg: {stderr}", stage="Tagging")

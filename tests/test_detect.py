@@ -15,3 +15,7 @@ def test_detect_soundcloud() -> None:
 
 def test_detect_spotify() -> None:
     assert detect_provider("https://open.spotify.com/track/abc") == Provider.SPOTIFY
+
+
+def test_detect_pornhub() -> None:
+    assert detect_provider("https://www.pornhub.com/view_video.php?viewkey=abc") == Provider.PORNHUB

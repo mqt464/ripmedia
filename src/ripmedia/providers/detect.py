@@ -26,4 +26,19 @@ def detect_provider(url: str) -> Provider:
         return Provider.SOUNDCLOUD
     if host in {"open.spotify.com"}:
         return Provider.SPOTIFY
+    if host in {
+        "twitter.com",
+        "www.twitter.com",
+        "mobile.twitter.com",
+        "x.com",
+        "www.x.com",
+        "mobile.x.com",
+        "vxtwitter.com",
+        "www.vxtwitter.com",
+        "fxtwitter.com",
+        "www.fxtwitter.com",
+    }:
+        return Provider.TWITTER
+    if host in {"pornhub.com", "www.pornhub.com", "m.pornhub.com"}:
+        return Provider.PORNHUB
     return Provider.UNKNOWN

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ripmedia webhost</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <div class="title">ripmedia webhost</div>
+      </header>
+
+      <section class="input-panel">
+        <div class="input-head">
+          <div class="input-label">queue</div>
+          <div id="status" class="status status-disconnected">
+            <span class="status-indicator"></span>
+            <span class="status-text">disconnected</span>
+          </div>
+        </div>
+        <textarea
+          id="urls"
+          rows="1"
+          spellcheck="false"
+          placeholder="paste urls here..."
+        ></textarea>
+        <div class="actions">
+          <button id="enqueue">download</button>
+        </div>
+      </section>
+
+      <section class="list">
+        <div class="list-header">active</div>
+        <div id="active-list" class="items"></div>
+      </section>
+
+      <section class="list">
+        <div class="list-header">completed</div>
+        <div id="done-list" class="items"></div>
+      </section>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>

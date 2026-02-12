@@ -10,6 +10,9 @@ from yt_dlp import YoutubeDL
 
 from .errors import DownloadError
 from .paths import OutputPlan, ensure_unique_path
+from .ytdlp_utils import normalize_cookies_from_browser
+
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".avif", ".heic"}
 
 
 @dataclass(frozen=True)
@@ -62,8 +65,10 @@ def download_with_ytdlp(
         }
         if cookies is not None:
             ydl_opts["cookiefile"] = str(cookies)
-        if cookies_from_browser:
-            ydl_opts["cookiesfrombrowser"] = str(cookies_from_browser)
+        else:
+            cookies_spec = normalize_cookies_from_browser(cookies_from_browser)
+            if cookies_spec:
+                ydl_opts["cookiesfrombrowser"] = cookies_spec
 
         if audio:
             # Prefer stable container. yt-dlp will still select whatever stream is best, but
@@ -91,9 +96,9 @@ def download_with_ytdlp(
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
         except Exception as e:  # noqa: BLE001
-            raise DownloadError(f"yt-dlp failed: {e}", stage="Downloading") from e
+            raise DownloadError(f"yt-dlp failed: {_clean_ytdlp_error(e)}", stage="Downloading") from e
 
-        downloaded = _find_latest_media_file(tmp_dir)
+        downloaded = _select_downloaded_media(info, tmp_dir)
         if downloaded is None:
             raise DownloadError("yt-dlp completed but no output file was found.", stage="Downloading")
 
@@ -112,16 +117,39 @@ def download_with_ytdlp(
         )
 
 
+def _select_downloaded_media(info: dict[str, Any] | None, tmp_dir: Path) -> Path | None:
+    paths: list[Path] = []
+    if isinstance(info, dict):
+        requested = info.get("requested_downloads")
+        if isinstance(requested, list):
+            for entry in requested:
+                if not isinstance(entry, dict):
+                    continue
+                raw = entry.get("filepath") or entry.get("filename")
+                if raw:
+                    paths.append(Path(str(raw)))
+        for key in ("filepath", "_filename", "filename"):
+            raw = info.get(key)
+            if raw:
+                paths.append(Path(str(raw)))
+
+    for p in paths:
+        candidate = p if p.is_absolute() else (tmp_dir / p)
+        if candidate.exists() and _is_media_file(candidate):
+            return candidate
+
+    return _find_latest_media_file(tmp_dir)
+
+
 def _find_latest_media_file(tmp_dir: Path) -> Path | None:
-    candidates = [p for p in tmp_dir.glob("*") if p.is_file() and p.suffix not in {".part"}]
+    candidates = [p for p in tmp_dir.glob("*") if p.is_file() and _is_media_file(p)]
     if not candidates:
         return None
     return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
 def _load_thumbnail_bytes(tmp_dir: Path) -> tuple[bytes | None, str | None]:
-    exts = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".avif", ".heic"}
-    candidates = [p for p in tmp_dir.glob("*") if p.is_file() and p.suffix.lower() in exts]
+    candidates = [p for p in tmp_dir.glob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTS]
     if not candidates:
         return None, None
     best = max(candidates, key=lambda p: p.stat().st_mtime)
@@ -146,6 +174,23 @@ def _mime_from_ext(ext: str) -> str | None:
         ".heic": "image/heic",
     }
     return mapping.get(ext)
+
+
+def _is_media_file(path: Path) -> bool:
+    suffix = path.suffix.lower()
+    if suffix in _IMAGE_EXTS:
+        return False
+    return suffix != ".part"
+
+
+def _clean_ytdlp_error(err: Exception) -> str:
+    text = str(err).strip()
+    if "HTTP Error" in text:
+        idx = text.find("HTTP Error")
+        return text[idx:]
+    if "ERROR:" in text:
+        return text.replace("ERROR:", "").strip()
+    return text
 
 
 def _sniff_image_mime(blob: bytes) -> str | None:

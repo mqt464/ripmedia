@@ -1,0 +1,378 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0b;
+  --panel: #111111;
+  --text: #e6e6e6;
+  --muted: #7b7b7b;
+  --accent: #6fdc8c;
+  --accent-2: #6bbcff;
+  --error: #ff6b6b;
+  --border: #1e1e1e;
+  --bar-bg: #0a0a0a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "MS Gothic", "MS UI Gothic", "MS PGothic", "Consolas", "Courier New",
+    monospace;
+  letter-spacing: 0.2px;
+}
+
+#app {
+  max-width: 980px;
+  margin: 24px auto 40px;
+  padding: 0 20px 40px;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.input-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.input-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.input-label {
+  font-size: 11px;
+  text-transform: lowercase;
+  color: var(--muted);
+  letter-spacing: 0.6px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: lowercase;
+  letter-spacing: 0.4px;
+}
+
+.status-text {
+  color: var(--muted);
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid rgba(123, 123, 123, 0.5);
+  border-top-color: rgba(123, 123, 123, 0.9);
+  animation: spin 1s linear infinite;
+}
+
+.status-connected .status-text {
+  color: var(--accent);
+}
+
+.status-connected .status-indicator {
+  animation: none;
+  border: 2px solid var(--accent);
+  background: rgba(111, 220, 140, 0.2);
+}
+
+.status-disconnected .status-text {
+  color: #f4b183;
+}
+
+.status-disconnected .status-indicator {
+  border: 2px solid rgba(244, 177, 131, 0.6);
+  border-top-color: #f4b183;
+  animation: spin 0.9s linear infinite;
+}
+
+textarea {
+  width: 100%;
+  min-height: 32px;
+  max-height: 120px;
+  resize: none;
+  overflow-y: auto;
+  background: #0a0a0a;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: rgba(111, 220, 140, 0.5);
+  box-shadow: 0 0 0 3px rgba(111, 220, 140, 0.1);
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button {
+  background: var(--accent);
+  color: #08110b;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.list {
+  margin-top: 18px;
+}
+
+.list-header {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: lowercase;
+  margin-bottom: 8px;
+}
+
+.items {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+
+.item.done {
+  opacity: 0.8;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.badge {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.badge.running {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.badge.error {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.title-line {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.progress {
+  display: grid;
+  gap: 6px;
+}
+
+.progress-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.bar {
+  height: 4px;
+  background: var(--bar-bg);
+  border: none;
+  border-radius: 999px;
+  outline: none;
+  box-shadow: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-wrap {
+  position: relative;
+  overflow: visible;
+}
+
+.bar.error {
+  border-color: rgba(255, 107, 107, 0.6);
+}
+
+.bar.indeterminate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(111, 220, 140, 0.4),
+    transparent
+  );
+  animation: shimmer 1.2s linear infinite;
+}
+
+.fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 160ms linear;
+}
+
+.bar-steps {
+  position: absolute;
+  inset: -6px 0 -6px 0;
+  pointer-events: none;
+}
+
+.step-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--bar-bg);
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.step-dot.done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.step-dot.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+
+.step-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.step-text {
+  color: var(--text);
+  text-transform: lowercase;
+  letter-spacing: 0.4px;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.step-text.step-change {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.9);
+}
+
+.progress-text {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.paths {
+  font-size: 11px;
+  color: var(--muted);
+  display: grid;
+  gap: 4px;
+}
+
+.path {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  appearance: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.path:hover {
+  color: var(--accent-2);
+}
+
+.path.error {
+  color: var(--error);
+  cursor: default;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

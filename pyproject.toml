@@ -31,6 +31,7 @@ ripmedia = "ripmedia.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ripmedia"]
+include = ["src/ripmedia/web/*.html", "src/ripmedia/web/*.css", "src/ripmedia/web/*.js"]
 
 [tool.ruff]
 line-length = 100

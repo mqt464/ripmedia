@@ -32,15 +32,16 @@ class OutputPlan:
 
 
 def build_output_plan(item: NormalizedItem, *, output_dir: Path, extension: str) -> OutputPlan:
-    title = sanitize_path_segment(item.title) if item.title else "unknown"
+    title = sanitize_path_segment(item.title) if item.title else None
+    artist = sanitize_path_segment(item.artist) if item.artist else None
+
+    filename: str
+    if item.kind == MediaKind.TRACK and artist and title:
+        filename = f"{artist} - {title}"
+    else:
+        filename = title or artist or "unknown"
 
     directory = output_dir
-    track_prefix = ""
-    if item.track_number is not None:
-        track_prefix = f"{item.track_number:02d} - "
-
-    filename = title
-
     filename_stem = sanitize_path_segment(filename)
     if not extension.startswith("."):
         extension = "." + extension

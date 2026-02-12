@@ -4,7 +4,7 @@ ripmedia is a metadata-first CLI tool. Give it a URL (or list of URLs) and it sa
 
 ## Features
 
-- Providers: YouTube, SoundCloud, Spotify (metadata only + resolver)
+- Providers: YouTube, SoundCloud, Spotify (metadata only + resolver), Twitter/X, Pornhub, and other yt-dlp supported sites
 - Clean tags: title, artist, album, year, track and disc where available
 - Cover art embedding when available
 - Deterministic naming + folder layout
@@ -65,6 +65,12 @@ git pull
 pipx reinstall ripmedia
 ```
 
+Or run the built-in updater:
+
+```powershell
+ripmedia update
+```
+
 ## Usage
 
 Download:
@@ -88,6 +94,45 @@ ripmedia urls.txt
 ripmedia <url1> <url2> <url3>
 ```
 
+Local web UI:
+
+```powershell
+ripmedia webhost
+```
+
+## Plugins
+
+Plugins are just Python files in `~/.ripmedia/plugins`. They can add new subcommands or react to events.
+Available hook events: `download_start`, `download_complete`, `download_error`.
+
+Basic management:
+
+```powershell
+ripmedia plugins
+ripmedia plugins init discord
+ripmedia plugins enable discord
+ripmedia plugins disable discord
+ripmedia plugins remove discord
+```
+
+Example (Discord webhook):
+
+```powershell
+ripmedia discord send "https://youtu.be/..." --mp3
+```
+
+Set `discord_webhook` in `config.ini` for that example.
+
+Minimal plugin skeleton:
+
+```python
+def register(plugin):
+    @plugin.command("hello")
+    def hello():
+        ui = plugin.make_ui()
+        ui.status("Plugin", True, "Hello from a plugin")
+```
+
 ### Format overrides
 
 Defaults are audio `.m4a` and video `.mp4`. Override with:
@@ -99,6 +144,8 @@ ripmedia --mp3 <url>
 ```
 
 Tagging is implemented for `mp3`, `m4a`, and `mp4`. Other formats will be saved but may skip tagging.
+
+When `prefer_mp3_mp4` is true (default), mp4 outputs are auto-optimized for broad playback (H.264 + AAC + faststart) so they work in Discord and on phones.
 
 ### Spotify resolver
 
@@ -135,6 +182,12 @@ Open the config file:
 ripmedia config
 ```
 
+Update config defaults and remove legacy keys:
+
+```powershell
+ripmedia config update
+```
+
 Set a value:
 
 ```powershell
@@ -146,8 +199,12 @@ ripmedia config audio=true
 Supported keys:
 
 - `output_dir` (default base folder)
+- `web_port` (default port for `ripmedia webhost`, `0` = auto)
 - `override_audio_format` (format string or `false`)
 - `override_video_format` (format string or `false`)
+- `prefer_mp3_mp4` (use mp3/mp4 defaults; set `false` to keep legacy m4a/mp4)
+- `show_file_size` (show file size in progress output)
+- `speed_unit` (`mb/s` for MB/s, `mbp/s` for Mb/s)
 - `resolver` (`youtube` or `soundcloud`)
 - `audio` (default audio-first)
 - `verbose`

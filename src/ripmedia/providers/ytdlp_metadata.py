@@ -4,13 +4,47 @@ from typing import Any
 
 from yt_dlp import YoutubeDL
 
+from pathlib import Path
+
 from ..errors import MetadataError
 from ..model import MediaKind, NormalizedItem, Provider
+from ..ytdlp_utils import normalize_cookies_from_browser
 
 
-def fetch_ytdlp_metadata(url: str, *, provider: Provider) -> NormalizedItem:
+class _NoopLogger:
+    def debug(self, msg: str) -> None:  # noqa: D401
+        pass
+
+    def warning(self, msg: str) -> None:  # noqa: D401
+        pass
+
+    def error(self, msg: str) -> None:  # noqa: D401
+        pass
+
+
+def fetch_ytdlp_metadata(
+    url: str,
+    *,
+    provider: Provider,
+    cookies: Path | None = None,
+    cookies_from_browser: str | None = None,
+) -> NormalizedItem:
     try:
-        with YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": False}) as ydl:
+        ydl_opts = {
+            "quiet": True,
+            "skip_download": True,
+            "noplaylist": False,
+            "no_warnings": True,
+            "logger": _NoopLogger(),
+        }
+        if cookies is not None:
+            ydl_opts["cookiefile"] = str(cookies)
+        else:
+            cookies_spec = normalize_cookies_from_browser(cookies_from_browser)
+            if cookies_spec:
+                ydl_opts["cookiesfrombrowser"] = cookies_spec
+
+        with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception as e:  # noqa: BLE001
         raise MetadataError(f"Failed to fetch metadata via yt-dlp: {e}", stage="Metadata") from e

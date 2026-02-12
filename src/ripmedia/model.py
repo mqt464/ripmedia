@@ -9,6 +9,8 @@ class Provider(str, Enum):
     YOUTUBE = "youtube"
     SOUNDCLOUD = "soundcloud"
     SPOTIFY = "spotify"
+    TWITTER = "twitter"
+    PORNHUB = "pornhub"
     UNKNOWN = "unknown"
 
 

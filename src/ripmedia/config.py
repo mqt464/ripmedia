@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,9 +16,14 @@ _BOOL_KEYS = {
     "print_path",
     "no_color",
     "interactive",
+    "prefer_mp3_mp4",
+    "show_file_size",
 }
 _PATH_KEYS = {"output_dir", "cookies"}
 _FORMAT_OVERRIDE_KEYS = {"override_audio_format", "override_video_format"}
+_SPEED_UNIT_KEYS = {"speed_unit"}
+_INT_KEYS = {"web_port"}
+
 
 def _default_config_text() -> str:
     downloads = Path.home() / "Downloads"
@@ -27,8 +33,12 @@ def _default_config_text() -> str:
         "# key=value\n"
         "#\n"
         f"output_dir={output_dir}\n"
+        "web_port=0\n"
         "override_audio_format=false\n"
         "override_video_format=false\n"
+        "prefer_mp3_mp4=true\n"
+        "show_file_size=false\n"
+        "speed_unit=MBps\n"
         "resolver=youtube\n"
         "audio=false\n"
         "verbose=false\n"
@@ -93,6 +103,33 @@ def set_config_value(path: Path, key: str, value: str) -> None:
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
+def update_config(path: Path) -> tuple[int, int]:
+    ensure_config_file(path)
+    existing = load_config(path)
+    defaults = _default_config_values()
+
+    removed = [key for key in existing if key not in defaults]
+    merged = defaults.copy()
+    for key, value in existing.items():
+        if key in defaults:
+            merged[key] = value
+
+    lines: list[str] = []
+    for line in _default_config_text().splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or raw.startswith(";") or "=" not in raw:
+            lines.append(line)
+            continue
+        key, _ = raw.split("=", 1)
+        normalized = key.strip().lower().replace("-", "_")
+        value = merged.get(normalized, "")
+        lines.append(f"{normalized}={value}")
+
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    added = [key for key in defaults if key not in existing]
+    return len(added), len(removed)
+
+
 def coerce_value(key: str, value: str):
     key = key.strip().lower().replace("-", "_")
     v = value.strip()
@@ -113,8 +150,56 @@ def coerce_value(key: str, value: str):
             return None
         if low in _BOOL_TRUE:
             raise ValueError(f"Invalid format for {key}: {value}")
-        return low.lstrip(".")
+        low = low.lstrip(".")
+        if not low:
+            return None
+        if not re.fullmatch(r"[a-z0-9]+", low):
+            raise ValueError(f"Invalid format for {key}: {value}")
+        return low
+    if key in _INT_KEYS:
+        try:
+            return int(v)
+        except ValueError as e:
+            raise ValueError(f"Invalid integer for {key}: {value}") from e
+    if key in _SPEED_UNIT_KEYS:
+        return _normalize_speed_unit(v)
     return v
+
+
+def _normalize_speed_unit(value: str) -> str:
+    raw = value.strip().replace(" ", "")
+    if not raw:
+        raise ValueError(f"Invalid speed_unit: {value}. Use mb/s or mbp/s.")
+    if raw in {"MBps", "MB/s"}:
+        return "MBps"
+    if raw in {"Mbps", "Mb/s"}:
+        return "Mbps"
+    v = raw.lower()
+    if v in {"mb/s", "mbyte/s", "mbytes/s", "mbps_bytes"}:
+        return "MBps"
+    if v in {"mbp/s", "mbps", "mbit/s", "mbits/s"}:
+        return "Mbps"
+    if "byte" in v:
+        return "MBps"
+    if "bit" in v:
+        return "Mbps"
+    if v.endswith("mbs"):
+        return "MBps"
+    if v.endswith("mbps"):
+        return "Mbps"
+    raise ValueError(f"Invalid speed_unit: {value}. Use mb/s or mbp/s.")
+
+
+def _default_config_values() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in _default_config_text().splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or raw.startswith(";") or "=" not in raw:
+            continue
+        key, value = raw.split("=", 1)
+        normalized = key.strip().lower().replace("-", "_")
+        values[normalized] = value.strip()
+    return values
 
 
 def open_config(path: Path) -> None:

@@ -10,6 +10,17 @@ from .errors import ResolveError
 from .model import NormalizedItem, Provider
 
 
+class _NoopLogger:
+    def debug(self, msg: str) -> None:  # noqa: D401
+        pass
+
+    def warning(self, msg: str) -> None:  # noqa: D401
+        pass
+
+    def error(self, msg: str) -> None:  # noqa: D401
+        pass
+
+
 @dataclass(frozen=True)
 class ResolvedSource:
     url: str
@@ -77,7 +88,15 @@ def _resolve_candidates_from_search(
 
     entries: list[dict] = []
     try:
-        with YoutubeDL({"quiet": True, "skip_download": True, "extract_flat": "in_playlist"}) as ydl:
+        with YoutubeDL(
+            {
+                "quiet": True,
+                "skip_download": True,
+                "extract_flat": "in_playlist",
+                "no_warnings": True,
+                "logger": _NoopLogger(),
+            }
+        ) as ydl:
             for search in search_queries:
                 info = ydl.extract_info(search, download=False)
                 if isinstance(info, dict):

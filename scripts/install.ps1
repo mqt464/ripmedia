@@ -14,9 +14,12 @@ New-Item -ItemType Directory -Path $temp | Out-Null
 try {
   $zip = Join-Path $temp 'ripmedia-win-x64.zip'
   Invoke-WebRequest $zipAsset.browser_download_url -OutFile $zip
-  $sums = (Invoke-WebRequest $sumAsset.browser_download_url).Content
+  # Windows PowerShell 5.1 exposes Invoke-WebRequest .Content as a byte array.
+  # Invoke-RestMethod decodes this text asset consistently in both Windows
+  # PowerShell and PowerShell 7+, so the checksum regex sees the actual file.
+  $sums = Invoke-RestMethod $sumAsset.browser_download_url -Headers @{ 'User-Agent' = 'ripmedia-installer' }
   $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-  if ($sums -notmatch "(?im)^$hash\s+\*?ripmedia-win-x64\.zip$") { throw 'Release checksum verification failed.' }
+  if ($sums -notmatch "(?im)^$hash\s+\*?ripmedia-win-x64\.zip\r?$") { throw 'Release checksum verification failed.' }
   $target = Join-Path $versions $release.tag_name
   if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force -Recurse }
   New-Item -ItemType Directory -Path $target -Force | Out-Null

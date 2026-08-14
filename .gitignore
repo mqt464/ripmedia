@@ -1,0 +1,7 @@
+ripmedia_ARCHIVE/
+.vs/
+bin/
+obj/
+artifacts/
+TestResults/
+

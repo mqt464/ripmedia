@@ -1,0 +1,31 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions: { contents: write }
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - run: dotnet publish src/Ripmedia.Cli/Ripmedia.Cli.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/ripmedia
+      - name: Add download engines
+        shell: pwsh
+        run: |
+          $deps = Get-Content eng/dependencies.json | ConvertFrom-Json
+          New-Item -ItemType Directory artifacts/ripmedia/tools | Out-Null
+          Invoke-WebRequest $deps.ytDlp.url -OutFile artifacts/ripmedia/tools/yt-dlp.exe
+          Invoke-WebRequest $deps.ffmpeg.url -OutFile artifacts/ffmpeg.zip
+          if ((Get-FileHash artifacts/ripmedia/tools/yt-dlp.exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne $deps.ytDlp.sha256) { throw 'yt-dlp checksum mismatch' }
+          if ((Get-FileHash artifacts/ffmpeg.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $deps.ffmpeg.sha256) { throw 'FFmpeg checksum mismatch' }
+          Expand-Archive artifacts/ffmpeg.zip artifacts/ffmpeg
+          Copy-Item (Get-ChildItem artifacts/ffmpeg -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName artifacts/ripmedia/tools/ffmpeg.exe
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive artifacts/ripmedia/* artifacts/ripmedia-win-x64.zip
+          "$(Get-FileHash artifacts/ripmedia-win-x64.zip -Algorithm SHA256 | ForEach-Object { $_.Hash.ToLowerInvariant() })  ripmedia-win-x64.zip" | Set-Content artifacts/SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with: { files: 'artifacts/ripmedia-win-x64.zip;artifacts/SHA256SUMS' }

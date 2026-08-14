@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Core", "src\Ripmedia.Core\Ripmedia.Core.csproj", "{B7319AFE-1BCE-4A45-9E2C-5009EEC2AC01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Cli", "src\Ripmedia.Cli\Ripmedia.Cli.csproj", "{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Tests", "tests\Ripmedia.Tests\Ripmedia.Tests.csproj", "{0C4692B5-855E-444C-B42E-270E0ED65A03}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B7319AFE-1BCE-4A45-9E2C-5009EEC2AC01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7319AFE-1BCE-4A45-9E2C-5009EEC2AC01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7319AFE-1BCE-4A45-9E2C-5009EEC2AC01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7319AFE-1BCE-4A45-9E2C-5009EEC2AC01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

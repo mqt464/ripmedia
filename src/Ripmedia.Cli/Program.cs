@@ -77,12 +77,20 @@ internal static class Application
                 },
                 progress =>
                 {
+                    task.IsIndeterminate(progress.IsProcessing);
+                    if (progress.IsProcessing)
+                    {
+                        speed = null; eta = null;
+                        task.Description(Describe(progress.Activity!, title));
+                        return;
+                    }
                     if (progress.Percentage is not null) task.Value(Math.Clamp(progress.Percentage.Value, 0, 100));
                     if (!string.IsNullOrWhiteSpace(progress.Speed)) speed = progress.Speed;
                     if (!string.IsNullOrWhiteSpace(progress.Eta)) eta = progress.Eta;
                     if (progress.Percentage is not null || progress.Speed is not null || progress.Eta is not null)
                         task.Description(Describe("Downloading", title));
                 }, CancellationToken.None);
+            task.IsIndeterminate(false);
             task.Value(100);
             speed = null; eta = null;
             task.Description(result.Paths.Count > 0 ? "[#b8ceb8]Download complete[/]" : "[#d69ba6]Download finished with errors[/]");

@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '24.x' }
       - run: dotnet publish src/Ripmedia.Cli/Ripmedia.Cli.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/ripmedia
+      - run: dotnet publish src/Ripmedia.Launcher/Ripmedia.Launcher.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/launcher
+      - run: Copy-Item artifacts/launcher/ripmedia-launcher.exe artifacts/ripmedia/ripmedia-launcher.exe
       - name: Add download engines
         shell: pwsh
         run: |

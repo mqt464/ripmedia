@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Core", "src\Ripmed
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Cli", "src\Ripmedia.Cli\Ripmedia.Cli.csproj", "{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Launcher", "src\Ripmedia.Launcher\Ripmedia.Launcher.csproj", "{D1E1B59E-2F8D-4DDE-9FE7-8C0BFD53D9FC}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ripmedia.Tests", "tests\Ripmedia.Tests\Ripmedia.Tests.csproj", "{0C4692B5-855E-444C-B42E-270E0ED65A03}"
 EndProject
 Global
@@ -22,6 +24,10 @@ Global
 		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8A305F1D-6C91-4EAB-B227-38F55CFC9B02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E1B59E-2F8D-4DDE-9FE7-8C0BFD53D9FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E1B59E-2F8D-4DDE-9FE7-8C0BFD53D9FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E1B59E-2F8D-4DDE-9FE7-8C0BFD53D9FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E1B59E-2F8D-4DDE-9FE7-8C0BFD53D9FC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C4692B5-855E-444C-B42E-270E0ED65A03}.Release|Any CPU.ActiveCfg = Release|Any CPU

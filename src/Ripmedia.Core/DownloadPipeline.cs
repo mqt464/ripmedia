@@ -42,7 +42,12 @@ public sealed class DownloadPipeline(YtDlpClient ytDlp, MediaTagger tagger)
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Move(media, target); allPaths.Add(target); Add("Saved", true, target);
                 }
                 catch (Exception exception) { Add("Download", false, exception.Message); }
-                finally { try { Directory.Delete(temp, true); } catch (IOException) { } }
+                finally
+                {
+                    try { Directory.Delete(temp, true); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
             }
         }
         return new DownloadResult(allPaths, allStages);

@@ -14,7 +14,15 @@ public static class ProcessRunner
         var output = new List<string>(); var errors = new List<string>();
         process.Start();
         var outTask = ReadAsync(process.StandardOutput, output, stdout); var errTask = ReadAsync(process.StandardError, errors, stderr);
-        await process.WaitForExitAsync(cancellationToken); await Task.WhenAll(outTask, errTask);
+        try { await process.WaitForExitAsync(cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            try { if (!process.HasExited) process.Kill(true); }
+            catch (InvalidOperationException) { }
+            await Task.WhenAll(outTask, errTask);
+            throw;
+        }
+        await Task.WhenAll(outTask, errTask);
         return new ProcessResult(process.ExitCode, output, errors);
     }
 

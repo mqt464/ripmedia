@@ -27,7 +27,6 @@ public sealed class MediaTagger(HttpClient httpClient)
             file.Save();
             return true;
         }
-        catch (CorruptFileException) { return false; }
-        catch (UnsupportedFormatException) { return false; }
+        catch (Exception error) when (error is CorruptFileException or UnsupportedFormatException or HttpRequestException or IOException or UnauthorizedAccessException) { return false; }
     }
 }

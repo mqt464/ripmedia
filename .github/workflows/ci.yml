@@ -10,7 +10,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '24.x' }
       - run: dotnet restore Ripmedia.sln
-      - run: dotnet build src/Ripmedia.Cli/Ripmedia.Cli.csproj --no-restore
+      - run: dotnet build Ripmedia.sln --configuration Release --no-restore
       - run: dotnet test Ripmedia.sln --configuration Release --no-restore
       - run: dotnet publish src/Ripmedia.Cli/Ripmedia.Cli.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/app
+      - run: dotnet publish src/Ripmedia.Launcher/Ripmedia.Launcher.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/launcher
       - run: artifacts/app/ripmedia.exe version
+      - run: if (-not (Test-Path artifacts/launcher/ripmedia-launcher.exe)) { throw 'Published launcher is missing.' }

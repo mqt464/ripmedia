@@ -25,7 +25,10 @@ try {
   New-Item -ItemType Directory -Path $target -Force | Out-Null
   Expand-Archive -LiteralPath $zip -DestinationPath $target -Force
   New-Item -ItemType Directory -Path $bin -Force | Out-Null
-  Set-Content -LiteralPath (Join-Path $bin 'ripmedia.cmd') -Value "@echo off`r`n`"$target\ripmedia.exe`" %*" -NoNewline
+  $launcher = Join-Path $target 'ripmedia-launcher.exe'
+  if (-not (Test-Path -LiteralPath $launcher)) { throw 'Release bundle is missing the ripmedia launcher.' }
+  Copy-Item -LiteralPath $launcher -Destination (Join-Path $bin 'ripmedia.exe') -Force
+  Set-Content -LiteralPath (Join-Path $bin 'current.txt') -Value (Join-Path $target 'ripmedia.exe') -NoNewline
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   if (($userPath -split ';') -notcontains $bin) { [Environment]::SetEnvironmentVariable('Path', ($userPath.TrimEnd(';') + ';' + $bin), 'User') }
   if (($env:Path -split ';') -notcontains $bin) { $env:Path += ';' + $bin }

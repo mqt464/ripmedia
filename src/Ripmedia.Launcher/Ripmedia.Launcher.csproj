@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ripmedia-launcher</AssemblyName>
+    <RootNamespace>Ripmedia.Launcher</RootNamespace>
+  </PropertyGroup>
+</Project>

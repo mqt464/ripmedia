@@ -71,4 +71,29 @@ public sealed class UrlInputTests
         Assert.Equal("2.50MiB/s", progress.Speed);
         Assert.Null(progress.Eta);
     }
+
+    [Theory]
+    [InlineData("[Merger] Merging formats into \"example.mkv\"", "Merging streams")]
+    [InlineData("[ExtractAudio] Destination: example.mp3", "Converting audio")]
+    [InlineData("[VideoRemuxer] Remuxing video from webm to mp4", "Remuxing video")]
+    [InlineData("[VideoConvertor] Converting video from webm to mp4", "Converting video")]
+    public void DetectsFfmpegPostProcessing(string line, string activity)
+    {
+        var progress = DownloadProgress.Parse(line);
+
+        Assert.True(progress.IsProcessing);
+        Assert.Equal(activity, progress.Activity);
+        Assert.Null(progress.Percentage);
+    }
+
+    [Fact]
+    public async Task CancellingAProcessStopsItsProcessTree()
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ProcessRunner.RunAsync(
+            Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+            ["/c", "ping -n 30 127.0.0.1 > nul"],
+            cancellationToken: cancellation.Token));
+    }
 }

@@ -139,15 +139,17 @@ internal static class WebHost
                     Message = stage.Success ? stage.Name : $"{stage.Name} failed",
                     Title = !string.IsNullOrWhiteSpace(stage.Detail) && (stage.Name is "Inspect" or "Download") ? stage.Detail
                         : !string.IsNullOrWhiteSpace(stage.Detail) && stage.Name == "Saved" ? Path.GetFileName(stage.Detail) : download.Title,
-                    Progress = stage.Name == "Download" ? download.Progress : null,
+                    Progress = stage.Name == "Inspect" ? null : stage.Name == "Convert" ? 100 : download.Progress,
+                    IsProcessing = false,
                     Stages = [.. download.Stages, stage]
                 }),
                 progress => UpdateDownload(id, download => download with
                 {
-                    Message = "Downloading…",
-                    Progress = progress.Percentage ?? download.Progress,
-                    Speed = progress.Speed ?? download.Speed,
-                    Eta = progress.Eta ?? download.Eta
+                    Message = progress.Activity ?? "Downloading…",
+                    Progress = progress.IsProcessing ? null : progress.Percentage ?? download.Progress,
+                    Speed = progress.IsProcessing ? null : progress.Speed ?? download.Speed,
+                    Eta = progress.IsProcessing ? null : progress.Eta ?? download.Eta,
+                    IsProcessing = progress.IsProcessing
                 }), CancellationToken.None);
             var failed = result.Stages.LastOrDefault(stage => !stage.Success);
             UpdateDownload(id, download => result.Paths.Count > 0
@@ -229,6 +231,7 @@ internal static class WebHost
             progress = entry.Value.Progress,
             speed = entry.Value.Speed,
             eta = entry.Value.Eta,
+            isProcessing = entry.Value.IsProcessing,
             paths = entry.Value.Paths
         });
         return new { downloads };
@@ -296,7 +299,7 @@ internal static class WebHost
                 input { background: transparent; border: 0; color: #e0c0c6; font: inherit; outline: none; padding: 0; width: 100%; }
                 .queue { display: grid; gap: 6px; margin-top: 20px; } .download { background: transparent; min-width: 0; padding: 7px 9px 7px 11px; position: relative; } .download.entering { animation: queued .42s cubic-bezier(.2,.8,.2,1) both; } @keyframes queued { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } } .download::before { background: #d6a1ac; content: ""; height: 100%; left: 0; position: absolute; top: 0; width: 2px; } .download.done::before { background: #b8ceb8; } .download.failed::before { background: #d69ba6; }
                 header { align-items: baseline; display: flex; gap: 12px; min-width: 0; } .title { color: #e0c0c6; flex: 1; font-size: .78rem; margin: 0; overflow: hidden; text-overflow: ellipsis; text-decoration: none; white-space: nowrap; } .done .title { color: #a99ba0; } .title[href] { cursor: pointer; } .title[href]:hover { color: #b8ceb8; text-decoration: underline; } .meta { color: #a99ba0; display: flex; flex-shrink: 0; font-size: .68rem; gap: 8px; margin-left: auto; }
-                .meter { background: #211a1d; height: 2px; margin-top: 6px; overflow: hidden; } .meter span { background: #d6a1ac; display: block; height: 100%; transition: width .65s cubic-bezier(.2,.8,.2,1); width: var(--progress, 0%); } .done .meter span { background: #b8ceb8; }
+                .meter { background: #211a1d; height: 2px; margin-top: 6px; overflow: hidden; } .meter span { background: #d6a1ac; display: block; height: 100%; transition: width .65s cubic-bezier(.2,.8,.2,1); width: var(--progress, 0%); } .meter.processing span { animation: processing 1.4s ease-in-out infinite; width: 36%; } .done .meter span { background: #b8ceb8; } @keyframes processing { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
                 @media (max-width: 440px) { body { padding-top: 28px; } }
               </style>
             </head>
@@ -308,8 +311,8 @@ internal static class WebHost
               const form = document.querySelector('form'); form.addEventListener('submit', event => { event.preventDefault(); fetch('/download', { method: 'POST', body: new URLSearchParams(new FormData(form)) }).then(() => form.reset()).catch(() => form.submit()); });
               const queue = document.querySelector('.queue');
               const text = value => document.createTextNode(value ?? '');
-              const meter = (job, existing) => { const node = existing ?? document.createElement('div'); if (node.className !== 'meter') node.className = 'meter'; const fill = node.firstElementChild ?? node.appendChild(document.createElement('span')); fill.style.setProperty('--progress', `${job.progress == null ? 0 : Math.max(0, Math.min(100, Math.round(job.progress)))}%`); return node; };
-              const update = (card, job) => { const snapshot = JSON.stringify(job); if (card.dataset.snapshot === snapshot) return; card.dataset.snapshot = snapshot; const classes = `download${job.done ? (job.ok ? ' done' : ' failed') : ''}${card.classList.contains('entering') ? ' entering' : ''}`; if (card.className !== classes) card.className = classes; const title = card.querySelector('.title'); title.textContent = job.title ?? ''; if (job.done && job.ok && job.paths?.length) title.href = `/open/${job.id}`; else title.removeAttribute('href'); const meta = card.querySelector('.meta'); meta.replaceChildren(...[job.progress == null ? '0%' : `${Math.max(0, Math.min(100, Math.round(job.progress)))}%`, job.speed ?? '—', job.eta ? `ETA ${job.eta}` : 'ETA —'].map(value => { const span = document.createElement('span'); span.textContent = value; return span; })); meter(job, card.querySelector('.meter')); };
+              const meter = (job, existing) => { const node = existing ?? document.createElement('div'); node.classList.add('meter'); node.classList.toggle('processing', job.isProcessing === true); const fill = node.firstElementChild ?? node.appendChild(document.createElement('span')); fill.style.setProperty('--progress', `${job.progress == null ? 0 : Math.max(0, Math.min(100, Math.round(job.progress)))}%`); return node; };
+              const update = (card, job) => { const snapshot = JSON.stringify(job); if (card.dataset.snapshot === snapshot) return; card.dataset.snapshot = snapshot; const classes = `download${job.done ? (job.ok ? ' done' : ' failed') : ''}${card.classList.contains('entering') ? ' entering' : ''}`; if (card.className !== classes) card.className = classes; const title = card.querySelector('.title'); title.textContent = job.title ?? ''; if (job.done && job.ok && job.paths?.length) title.href = `/open/${job.id}`; else title.removeAttribute('href'); const meta = card.querySelector('.meta'); meta.replaceChildren(...[job.isProcessing ? 'Processing' : job.progress == null ? '0%' : `${Math.max(0, Math.min(100, Math.round(job.progress)))}%`, job.speed ?? '—', job.eta ? `ETA ${job.eta}` : 'ETA —'].map(value => { const span = document.createElement('span'); span.textContent = value; return span; })); meter(job, card.querySelector('.meter')); };
               const create = job => { const card = document.createElement('article'); const header = document.createElement('header'); const title = document.createElement('a'); const meta = document.createElement('div'); const meterNode = document.createElement('div'); card.dataset.id = job.id; title.className = 'title'; meta.className = 'meta'; meterNode.className = 'meter'; meterNode.append(document.createElement('span')); header.append(title, meta); card.append(header, meterNode); update(card, job); requestAnimationFrame(() => { card.classList.add('entering'); setTimeout(() => card.classList.remove('entering'), 450); }); return card; };
               const sync = downloads => { const old = new Map([...queue.children].map(card => [card.dataset.id, card])); for (const job of downloads) { const card = old.get(job.id) ?? create(job); update(card, job); queue.append(card); old.delete(job.id); } for (const card of old.values()) card.remove(); }; const events = new EventSource('/events'); events.addEventListener('downloads', event => sync(JSON.parse(event.data).downloads));
             </script></body>
@@ -322,7 +325,7 @@ internal static class WebHost
         var percentage = download.Progress is double value ? Math.Clamp((int)Math.Round(value), 0, 100) : (int?)null;
         var transfer = new[] { $"{percentage ?? 0}%", string.IsNullOrWhiteSpace(download.Speed) ? "—" : download.Speed, string.IsNullOrWhiteSpace(download.Eta) ? "ETA —" : $"ETA {download.Eta}" }
             .Select(WebUtility.HtmlEncode);
-        var meter = $"<div class=\"meter\"><span style=\"--progress:{percentage ?? 0}%\"></span></div>";
+        var meter = $"<div class=\"meter{(download.IsProcessing ? " processing" : string.Empty)}\"><span style=\"--progress:{percentage ?? 0}%\"></span></div>";
         var classes = download.Done ? (download.Ok ? "download done" : "download failed") : "download";
         var title = download.Title ?? string.Empty;
         var link = download.Done && download.Ok && download.Paths is { Count: > 0 } ? $" href=\"/open/{WebUtility.HtmlEncode(id)}\"" : string.Empty;
@@ -366,7 +369,7 @@ internal static class WebHost
             $"<li class=\"{(stage.Success ? "" : "failed")}\"><b>{(stage.Success ? "✓" : "×")}</b><span>{WebUtility.HtmlEncode(stage.Name)}</span>{(string.IsNullOrWhiteSpace(stage.Detail) ? string.Empty : $"<small>{WebUtility.HtmlEncode(UiText.Truncate(stage.Detail))}</small>")}</li>");
         var paths = download.Paths is { Count: > 0 }
             ? $"<div class=\"paths\">{string.Join("<br>", download.Paths.Select(WebUtility.HtmlEncode))}</div>" : string.Empty;
-        var meter = percentage is null
+        var meter = download.IsProcessing || percentage is null
             ? "<div class=\"meter waiting\"><span></span></div>"
             : $"<div class=\"meter\"><span style=\"width:{percentage}%\"></span></div>";
         return $$"""
@@ -392,5 +395,5 @@ internal static class WebHost
     }
 
     private sealed record WebDownload(DateTimeOffset StartedAt, bool Done, bool Ok, string? Title, string Message, double? Progress, string? Speed, string? Eta,
-        IReadOnlyList<StageResult> Stages, IReadOnlyList<string>? Paths = null);
+        IReadOnlyList<StageResult> Stages, IReadOnlyList<string>? Paths = null, bool IsProcessing = false);
 }

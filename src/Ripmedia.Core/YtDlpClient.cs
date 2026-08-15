@@ -70,9 +70,26 @@ public sealed record DownloadProgress(double? Percentage, string? Speed, string?
     private static readonly Regex PercentagePattern = new(@"\[download\]\s+(?<percent>[\d.]+)%", RegexOptions.Compiled);
     private static readonly Regex SpeedPattern = new(@"\bat\s+(?<speed>\S+)", RegexOptions.Compiled);
     private static readonly Regex EtaPattern = new(@"\bETA\s+(?<eta>\S+)", RegexOptions.Compiled);
+    private static readonly Regex PostProcessingPattern = new(@"^\[(?<processor>Merger|ExtractAudio|VideoRemuxer|VideoConvertor)\]", RegexOptions.Compiled);
+
+    public string? Activity { get; init; }
+    public bool IsProcessing => Activity is not null;
 
     public static DownloadProgress Parse(string line)
     {
+        var postProcessing = PostProcessingPattern.Match(line);
+        if (postProcessing.Success)
+        {
+            var activity = postProcessing.Groups["processor"].Value switch
+            {
+                "Merger" => "Merging streams",
+                "ExtractAudio" => "Converting audio",
+                "VideoRemuxer" => "Remuxing video",
+                "VideoConvertor" => "Converting video",
+                _ => "Processing media"
+            };
+            return new(null, null, null) { Activity = activity };
+        }
         var percentage = PercentagePattern.Match(line);
         var speed = SpeedPattern.Match(line);
         var eta = EtaPattern.Match(line);

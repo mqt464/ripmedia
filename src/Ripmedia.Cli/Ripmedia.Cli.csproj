@@ -8,4 +8,17 @@
     <ProjectReference Include="..\Ripmedia.Core\Ripmedia.Core.csproj" />
     <PackageReference Include="Spectre.Console" Version="0.49.1" />
   </ItemGroup>
+  <Target Name="RestoreRipmediaTools" BeforeTargets="Build" Condition="!Exists('tools\yt-dlp.exe') Or !Exists('tools\ffmpeg.exe') Or !Exists('tools\pot-provider\node.exe') Or !Exists('tools\pot-provider\server\build\main.js') Or !Exists('tools\yt-dlp-plugins\bgutil-ytdlp-pot-provider.zip')">
+    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\restore-tools.ps1&quot; -Destination &quot;$(MSBuildProjectDirectory)\tools&quot;" />
+  </Target>
+  <Target Name="CopyRipmediaTools" AfterTargets="Build" Condition="Exists('tools\yt-dlp.exe') And Exists('tools\ffmpeg.exe') And Exists('tools\pot-provider\node.exe') And Exists('tools\yt-dlp-plugins\bgutil-ytdlp-pot-provider.zip')">
+    <MakeDir Directories="$(OutDir)tools" />
+    <Copy SourceFiles="tools\yt-dlp.exe;tools\ffmpeg.exe" DestinationFolder="$(OutDir)tools\" SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <RipmediaPoTokenProviderFiles Include="tools\pot-provider\**\*" />
+      <RipmediaYtDlpPluginFiles Include="tools\yt-dlp-plugins\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RipmediaPoTokenProviderFiles)" DestinationFiles="@(RipmediaPoTokenProviderFiles->'$(OutDir)tools\pot-provider\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(RipmediaYtDlpPluginFiles)" DestinationFiles="@(RipmediaYtDlpPluginFiles->'$(OutDir)tools\yt-dlp-plugins\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

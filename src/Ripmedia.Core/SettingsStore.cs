@@ -18,7 +18,7 @@ public sealed class SettingsStore
             await using var stream = File.OpenRead(SettingsPath);
             return await JsonSerializer.DeserializeAsync<RipmediaSettings>(stream, Options, cancellationToken) ?? new RipmediaSettings();
         }
-        var settings = MigrateLegacy();
+        var settings = new RipmediaSettings();
         await SaveAsync(settings, cancellationToken);
         return settings;
     }
@@ -31,21 +31,4 @@ public sealed class SettingsStore
         File.Move(temporary, SettingsPath, true);
     }
 
-    private static RipmediaSettings MigrateLegacy()
-    {
-        var settings = new RipmediaSettings();
-        var oldPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ripmedia", "config.ini");
-        if (!File.Exists(oldPath)) return settings;
-        var values = File.ReadLines(oldPath).Select(line => line.Trim()).Where(line => line.Contains('=') && !line.StartsWith('#') && !line.StartsWith(';'))
-            .Select(line => line.Split('=', 2)).ToDictionary(parts => parts[0].Trim().Replace('-', '_'), parts => parts[1].Trim(), StringComparer.OrdinalIgnoreCase);
-        if (values.TryGetValue("output_dir", out var output) && !string.IsNullOrWhiteSpace(output)) settings.OutputDirectory = output;
-        if (values.TryGetValue("cookies", out var cookies) && !string.Equals(cookies, "none", StringComparison.OrdinalIgnoreCase)) settings.CookieFile = cookies;
-        if (values.TryGetValue("no_color", out var noColor)) settings.NoColor = IsTrue(noColor);
-        if (values.TryGetValue("show_file_size", out var showSize)) settings.ShowFileSize = IsTrue(showSize);
-        if (values.TryGetValue("speed_unit", out var speed)) settings.SpeedUnit = speed;
-        settings.MigratedLegacySettings = true;
-        return settings;
-    }
-
-    private static bool IsTrue(string value) => value.Equals("true", StringComparison.OrdinalIgnoreCase) || value is "1" or "yes" or "on";
 }

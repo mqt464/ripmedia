@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An intuitive CLI tool for downloading media.">
+  <meta name="theme-color" content="#000000">
+  <title>ripmedia</title>
+  <link rel="icon" href="assets/FullAppIconLogo.png" type="image/png">
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html { background: #000; }
+    body {
+      background: #000;
+      color: #e0c0c6;
+      font: 15px/1.5 ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+      margin: 0;
+      min-height: 100vh;
+    }
+    #snow {
+      height: 100%;
+      inset: 0;
+      pointer-events: none;
+      position: fixed;
+      width: 100%;
+    }
+    main {
+      display: grid;
+      min-width: 0;
+      min-height: 100vh;
+      padding: 40px 20px;
+      place-items: center;
+      position: relative;
+      z-index: 1;
+    }
+    .content {
+      display: grid;
+      grid-template-rows: 1fr auto 1fr;
+      min-height: calc(100vh - 80px);
+      min-width: 0;
+      width: min(680px, 100%);
+    }
+    .intro {
+      align-self: end;
+      display: grid;
+      gap: 16px;
+      padding-bottom: 16px;
+    }
+    .brand {
+      background: #d6a1ac;
+      color: #000;
+      display: inline-block;
+      font-size: clamp(1.4rem, 4.2vw, 2.45rem);
+      font-weight: 800;
+      justify-self: start;
+      letter-spacing: .03em;
+      margin: 0;
+      padding: 4px 10px 6px;
+      text-transform: lowercase;
+    }
+    .description {
+      color: #a99ba0;
+      margin: 0;
+      max-width: 57ch;
+    }
+    .install { margin: 0; }
+    fieldset {
+      border: 1px solid #d6a1ac;
+      margin: 0;
+      min-inline-size: 0;
+      padding: 7px 10px 9px;
+      transition: border-color 140ms cubic-bezier(.2,.8,.2,1);
+      width: 100%;
+    }
+    legend {
+      background: #d6a1ac;
+      color: #000;
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      padding: 2px 6px;
+      text-transform: lowercase;
+      transition: background-color 140ms cubic-bezier(.2,.8,.2,1), width 140ms cubic-bezier(.2,.8,.2,1);
+      white-space: nowrap;
+    }
+    .install:hover fieldset { border-color: #b8ceb8; }
+    .install:hover legend { background: #b8ceb8; }
+    .command-row { align-items: baseline; display: flex; gap: 10px; min-width: 0; }
+    code {
+      color: #e0c0c6;
+      cursor: pointer;
+      flex: 1;
+      font: .82rem/1.5 ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      white-space: nowrap;
+    }
+    code:focus-visible { outline: 1px solid #d6a1ac; outline-offset: 4px; }
+    a:focus-visible { outline: 1px solid #d6a1ac; outline-offset: 4px; }
+    .details {
+      align-self: start;
+      border-top: 1px solid #211a1d;
+      color: #a99ba0;
+      font-size: .78rem;
+      line-height: 1.6;
+      margin: 16px 0 0;
+      padding: 14px 0 0;
+    }
+    .links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; }
+    .credit {
+      align-items: center;
+      color: #a99ba0;
+      display: inline-flex;
+      font-size: .84rem;
+      gap: 8px;
+      margin-top: 16px;
+      text-decoration: none;
+    }
+    .credit:hover { color: #b8ceb8; text-decoration: underline; }
+    .credit img { border-radius: 50%; height: 22px; width: 22px; }
+    a { color: #d6a1ac; text-underline-offset: 3px; }
+    a:hover { color: #b8ceb8; }
+    @media (max-width: 440px) {
+      main { padding: 28px 16px; }
+      .content { min-height: calc(100vh - 56px); }
+      .command-row { align-items: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #snow { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="snow" aria-hidden="true"></canvas>
+  <main>
+    <section class="content" aria-label="ripmedia download">
+      <div class="intro">
+        <div class="brand">ripmedia</div>
+        <p class="description">An intuitive CLI tool for downloading media.</p>
+      </div>
+
+      <div class="install">
+        <fieldset>
+          <legend id="install-label">install</legend>
+          <div class="command-row">
+            <code id="install-command" aria-label="Copy install command" role="button" tabindex="0">irm https://raw.githubusercontent.com/mqt464/ripmedia/main/scripts/install.ps1 | iex</code>
+          </div>
+        </fieldset>
+      </div>
+
+      <footer class="details">
+        Windows x64. The installer downloads the verified GitHub Release bundle, including ripmedia, yt-dlp, and FFmpeg.
+        <nav class="links" aria-label="Related links">
+          <a href="https://github.com/mqt464/ripmedia/releases/latest/download/ripmedia-win-x64.zip">latest release (.zip)</a>
+          <a href="https://github.com/mqt464/ripmedia">source repository</a>
+        </nav>
+        <a class="credit" href="https://github.com/mqt464" aria-label="Made by mqt464 on GitHub">
+          <img src="https://github.com/mqt464.png?size=64" alt="" width="22" height="22" loading="lazy">
+          <span>made by mqt464</span>
+        </a>
+      </footer>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const command = document.querySelector('#install-command');
+      const installLabel = document.querySelector('#install-label');
+      let resetInstallLabel;
+      const measureInstallLabel = state => {
+        const measurement = installLabel.cloneNode();
+        measurement.style.cssText = 'left:0;position:absolute;top:0;transition:none;visibility:hidden;width:auto;';
+        measurement.textContent = state;
+        document.body.append(measurement);
+        const width = measurement.getBoundingClientRect().width;
+        measurement.remove();
+        return width;
+      };
+      const setInstallLabel = state => {
+        const fromWidth = installLabel.getBoundingClientRect().width;
+        const toWidth = measureInstallLabel(state);
+        installLabel.style.width = `${fromWidth}px`;
+        installLabel.textContent = state;
+        requestAnimationFrame(() => { installLabel.style.width = `${toWidth}px`; });
+      };
+      const selectCommand = () => {
+        const range = document.createRange();
+        range.selectNodeContents(command);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      };
+      const copyCommand = async () => {
+        try {
+          await navigator.clipboard.writeText(command.textContent);
+          showCopyState('copied');
+        } catch {
+          selectCommand();
+          showCopyState(document.execCommand('copy') ? 'copied' : 'select + copy');
+        }
+      };
+      const showCopyState = state => {
+        clearTimeout(resetInstallLabel);
+        setInstallLabel(state);
+        resetInstallLabel = setTimeout(() => { setInstallLabel('install'); }, 1500);
+      };
+      command.addEventListener('click', copyCommand);
+      command.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        copyCommand();
+      });
+
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const canvas = document.querySelector('#snow');
+      const paint = canvas.getContext('2d');
+      let flakes = [];
+      let height = 0;
+      let lastFrame = 0;
+      let width = 0;
+      const newFlake = () => ({
+        alpha: .2 + Math.random() * .35,
+        drift: .8 + Math.random() * 1.7,
+        phase: Math.random() * Math.PI * 2,
+        speed: 4 + Math.random() * 7,
+        x: Math.random() * width,
+        y: Math.random() * height
+      });
+      const resize = () => {
+        const ratio = window.devicePixelRatio || 1;
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        paint.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const count = Math.ceil(width * height / 8667);
+        flakes = flakes.slice(0, count);
+        while (flakes.length < count) flakes.push(newFlake());
+      };
+      const frame = time => {
+        const elapsed = Math.min((time - lastFrame) / 1000, .1);
+        lastFrame = time;
+        paint.clearRect(0, 0, width, height);
+        for (const flake of flakes) {
+          flake.y += flake.speed * elapsed;
+          if (flake.y > height) { flake.y = -1; flake.x = Math.random() * width; }
+          paint.fillStyle = `rgba(255,255,255,${flake.alpha})`;
+          paint.fillRect(flake.x + Math.sin(time * .0006 + flake.phase) * flake.drift, flake.y, 1, 1);
+        }
+        requestAnimationFrame(frame);
+      };
+      resize();
+      addEventListener('resize', resize, { passive: true });
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

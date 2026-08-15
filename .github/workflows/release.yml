@@ -10,6 +10,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '8.0.x' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24.x' }
       - run: dotnet publish src/Ripmedia.Cli/Ripmedia.Cli.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output artifacts/ripmedia
       - name: Add download engines
         shell: pwsh
@@ -18,10 +20,23 @@ jobs:
           New-Item -ItemType Directory artifacts/ripmedia/tools | Out-Null
           Invoke-WebRequest $deps.ytDlp.url -OutFile artifacts/ripmedia/tools/yt-dlp.exe
           Invoke-WebRequest $deps.ffmpeg.url -OutFile artifacts/ffmpeg.zip
+          Invoke-WebRequest $deps.youtubePoTokenProvider.pluginUrl -OutFile artifacts/bgutil-ytdlp-pot-provider.zip
           if ((Get-FileHash artifacts/ripmedia/tools/yt-dlp.exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne $deps.ytDlp.sha256) { throw 'yt-dlp checksum mismatch' }
           if ((Get-FileHash artifacts/ffmpeg.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $deps.ffmpeg.sha256) { throw 'FFmpeg checksum mismatch' }
+          if ((Get-FileHash artifacts/bgutil-ytdlp-pot-provider.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $deps.youtubePoTokenProvider.pluginSha256) { throw 'YouTube PO-token plugin checksum mismatch' }
           Expand-Archive artifacts/ffmpeg.zip artifacts/ffmpeg
           Copy-Item (Get-ChildItem artifacts/ffmpeg -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName artifacts/ripmedia/tools/ffmpeg.exe
+          New-Item -ItemType Directory artifacts/ripmedia/tools/yt-dlp-plugins | Out-Null
+          Copy-Item artifacts/bgutil-ytdlp-pot-provider.zip artifacts/ripmedia/tools/yt-dlp-plugins/bgutil-ytdlp-pot-provider.zip
+          git clone --no-checkout $deps.youtubePoTokenProvider.repository artifacts/pot-provider
+          git -C artifacts/pot-provider checkout $deps.youtubePoTokenProvider.commit
+          Push-Location artifacts/pot-provider/server
+          npm ci --include=dev
+          npx --no-install tsc
+          Pop-Location
+          New-Item -ItemType Directory artifacts/ripmedia/tools/pot-provider | Out-Null
+          Copy-Item artifacts/pot-provider/server artifacts/ripmedia/tools/pot-provider/server -Recurse
+          Copy-Item (Get-Command node.exe).Source artifacts/ripmedia/tools/pot-provider/node.exe
       - name: Package
         shell: pwsh
         run: |

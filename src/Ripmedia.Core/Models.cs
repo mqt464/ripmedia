@@ -47,14 +47,14 @@ public sealed record MediaItem(
 
     private static MediaKind GuessKind(JsonElement node) => string.Equals(GetString(node, "vcodec"), "none", StringComparison.OrdinalIgnoreCase) ? MediaKind.Track : MediaKind.Video;
     private static string? GetString(JsonElement node, string name) => node.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String ? value.GetString() : null;
-    private static uint? GetUInt(JsonElement node, string name) => node.TryGetProperty(name, out var value) && value.TryGetUInt32(out var result) ? result : null;
-    private static int? GetInt(JsonElement node, string name) => node.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : null;
+    private static uint? GetUInt(JsonElement node, string name) => node.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetUInt32(out var result) ? result : null;
+    private static int? GetInt(JsonElement node, string name) => node.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var result) ? result : null;
 }
 
-public sealed record BrowserCookieProfile(string Browser, string Profile, string Path)
+public sealed record BrowserCookieProfile(string Browser, string Profile, string Path, string? DisplayName = null)
 {
     public string YtDlpValue => $"{Browser}:{Path}";
-    public override string ToString() => $"{Browser} · {Profile}";
+    public override string ToString() => $"{DisplayName ?? Browser} · {Profile}";
 }
 
 public sealed class RipmediaSettings
@@ -65,7 +65,19 @@ public sealed class RipmediaSettings
     public bool NoColor { get; set; }
     public string? CookieFile { get; set; }
     public BrowserCookieProfile? BrowserCookieProfile { get; set; }
-    public bool MigratedLegacySettings { get; set; }
+    public string DefaultAudioFormat { get; set; } = string.Empty;
+    public string DefaultVideoFormat { get; set; } = string.Empty;
+
+    public RipmediaSettings WithoutBrowserCookies() => new()
+    {
+        OutputDirectory = OutputDirectory,
+        SpeedUnit = SpeedUnit,
+        ShowFileSize = ShowFileSize,
+        NoColor = NoColor,
+        CookieFile = CookieFile,
+        DefaultAudioFormat = DefaultAudioFormat,
+        DefaultVideoFormat = DefaultVideoFormat
+    };
 }
 
 public sealed record DownloadRequest(IReadOnlyList<string> Inputs, string? OutputDirectory, bool AudioOnly, string? Format,

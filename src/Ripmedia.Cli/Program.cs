@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Ripmedia.Core;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -13,15 +14,16 @@ internal static class Application
         var store = new SettingsStore(); var settings = await store.LoadAsync();
         if (args.Length == 0 || args[0] is "help" or "--help" or "-h") { Help(); return 0; }
         var command = args[0].ToLowerInvariant();
-        if (command is not ("download" or "info" or "cookies" or "config" or "update" or "version")) return await DownloadAsync(args, settings, store);
+        if (command is not ("download" or "info" or "cookies" or "config" or "update" or "version" or "webhost")) return await DownloadAsync(args, settings, store);
         return command switch
         {
             "download" => await DownloadAsync(args[1..], settings, store),
             "info" => await InfoAsync(args[1..], settings),
             "cookies" => await CookiesAsync(args[1..], settings, store),
-            "config" => await ConfigAsync(args[1..], settings, store),
+            "config" => Config(args[1..], store),
             "update" => await UpdateAsync(),
             "version" => Version(),
+            "webhost" => await WebHost.RunAsync(args[1..], settings),
             _ => 2
         };
     }
@@ -46,22 +48,47 @@ internal static class Application
 
     private static async Task<DownloadResult> RunWithLiveUiAsync(DownloadPipeline pipeline, DownloadRequest request, RipmediaSettings settings)
     {
-        var rows = new List<StageResult>(); var percent = 0d;
+        var title = "media"; var speed = (string?)null; var eta = (string?)null;
+        var stages = new List<StageResult>();
         DownloadResult? result = null;
-        await AnsiConsole.Live(Render()).AutoClear(false).StartAsync(async context =>
+        await AnsiConsole.Progress()
+            .AutoClear(false)
+            .Columns(
+                new SpinnerColumn(Spinner.Known.Ascii)
+                    .Style(Style.Parse("#d6a1ac"))
+                    .CompletedStyle(Style.Parse("#b8ceb8")),
+                new TaskDescriptionColumn(),
+                new ProgressBarColumn()
+                    .CompletedStyle(Style.Parse("#d6a1ac"))
+                    .FinishedStyle(Style.Parse("#b8ceb8"))
+                    .RemainingStyle(Style.Parse("#5e555a")),
+                new PercentageColumn { Style = Style.Parse("#e0c0c6"), CompletedStyle = Style.Parse("#b8ceb8") },
+                new DownloadStatsColumn(() => FormatDownloadStats(speed, eta)))
+            .UseRenderHook((progress, _) => RenderStages(progress, stages))
+            .StartAsync(async context =>
         {
+            var task = context.AddTask("[#d6a1ac]Preparing[/] media", maxValue: 100);
             result = await pipeline.RunAsync(request, settings,
-                stage => { rows.Add(stage); context.UpdateTarget(Render()); },
-                progress => { if (progress.Percentage is not null) percent = progress.Percentage.Value; context.UpdateTarget(Render()); }, CancellationToken.None);
-            context.UpdateTarget(Render());
+                stage =>
+                {
+                    stages.Add(stage);
+                    if (!string.IsNullOrWhiteSpace(stage.Detail)) title = UiText.Truncate(stage.Detail, 48);
+                    task.Description(Describe(stage.Success ? stage.Name : $"{stage.Name} failed", title));
+                },
+                progress =>
+                {
+                    if (progress.Percentage is not null) task.Value(Math.Clamp(progress.Percentage.Value, 0, 100));
+                    if (!string.IsNullOrWhiteSpace(progress.Speed)) speed = progress.Speed;
+                    if (!string.IsNullOrWhiteSpace(progress.Eta)) eta = progress.Eta;
+                    if (progress.Percentage is not null || progress.Speed is not null || progress.Eta is not null)
+                        task.Description(Describe("Downloading", title));
+                }, CancellationToken.None);
+            task.Value(100);
+            speed = null; eta = null;
+            task.Description(result.Paths.Count > 0 ? "[#b8ceb8]Download complete[/]" : "[#d69ba6]Download finished with errors[/]");
+            task.StopTask();
         });
         return result!;
-        IRenderable Render()
-        {
-            var chart = new BarChart().Width(60).AddItem("Downloading", Math.Clamp(percent, 0, 100), Color.Cyan1);
-            IRenderable text = rows.Count == 0 ? new Markup("[grey]Preparing…[/]") : new Rows(rows.Select(row => (IRenderable)new Markup($"[{(row.Success ? "green" : "red")}]{(row.Success ? "✓" : "×")}[/] {Markup.Escape(row.Name)}" + (string.IsNullOrWhiteSpace(row.Detail) ? string.Empty : $" [grey]{Markup.Escape(Shorten(row.Detail))}[/]"))));
-            return new Rows(chart, text);
-        }
     }
 
     private static async Task<int> InfoAsync(string[] args, RipmediaSettings settings)
@@ -106,24 +133,23 @@ internal static class Application
         settings.BrowserCookieProfile = selected; await store.SaveAsync(settings); AnsiConsole.MarkupLine($"[green]Using[/] {Markup.Escape(selected.ToString())}"); return 0;
     }
 
-    private static async Task<int> ConfigAsync(string[] args, RipmediaSettings settings, SettingsStore store)
+    private static int Config(string[] args, SettingsStore store)
     {
-        if (args.Length == 0) { Console.WriteLine(JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true })); return 0; }
-        if (args[0].Equals("path", StringComparison.OrdinalIgnoreCase)) { Console.WriteLine(store.SettingsPath); return 0; }
-        var offset = args[0].Equals("set", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-        var expression = args.Skip(offset).FirstOrDefault();
-        if (expression is null) { Error("Use config set key=value."); return 2; }
-        var pair = expression.Split('=', 2); if (pair.Length != 2) { Error("Use config set key=value."); return 2; }
-        switch (pair[0].Trim().Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant())
+        if (args.Length != 0)
         {
-            case "outputdir": settings.OutputDirectory = pair[1].Trim(); break;
-            case "speedunit": settings.SpeedUnit = pair[1].Trim(); break;
-            case "showfilesize": settings.ShowFileSize = ParseBool(pair[1]); break;
-            case "nocolor": settings.NoColor = ParseBool(pair[1]); break;
-            case "cookies": settings.CookieFile = string.Equals(pair[1].Trim(), "none", StringComparison.OrdinalIgnoreCase) ? null : pair[1].Trim(); break;
-            default: Error("Supported settings: output_dir, speed_unit, show_file_size, no_color, cookies."); return 2;
+            Error("The config command does not accept arguments.");
+            return 2;
         }
-        await store.SaveAsync(settings); AnsiConsole.MarkupLine("[green]Configuration saved.[/]"); return 0;
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = store.SettingsPath, UseShellExecute = true });
+            return 0;
+        }
+        catch (Exception error)
+        {
+            Error($"Could not open the configuration file: {error.Message}");
+            return 1;
+        }
     }
 
     private static async Task<int> UpdateAsync()
@@ -133,7 +159,7 @@ internal static class Application
     }
     private static int Version() { Console.WriteLine(typeof(Application).Assembly.GetName().Version?.ToString(3) ?? "0.1.0"); return 0; }
 
-    private static DownloadRequest ParseDownload(string[] args)
+    internal static DownloadRequest ParseDownload(string[] args)
     {
         var inputs = new List<string>(); string? output = null; string? format = null; string? cookies = null; string? browser = null; var audio = false; var noPlaylist = false; var quiet = false; var verbose = false; var debug = false; var printPath = false; var noColor = false; string? speed = null;
         for (var i = 0; i < args.Length; i++)
@@ -141,15 +167,47 @@ internal static class Application
             var arg = args[i]; string Value() => ++i < args.Length ? args[i] : throw new ArgumentException($"{arg} requires a value.");
             switch (arg)
             {
-                case "--output-dir": output = Value(); break; case "--format": format = Value(); break; case "--cookies": cookies = Value(); break; case "--cookies-from-browser": browser = Value(); break; case "--speed-unit": speed = Value(); break;
-                case "--audio": audio = true; break; case "--mp3": format = "mp3"; break; case "--no-playlist": noPlaylist = true; break; case "--quiet": quiet = true; break; case "--verbose": case "-v": verbose = true; break; case "--debug": debug = true; break; case "--print-path": printPath = true; break; case "--no-color": noColor = true; break;
+                case "--output-dir": output = Value(); break;
+                case "--format": format = Value(); break;
+                case "--cookies": cookies = Value(); break;
+                case "--cookies-from-browser": browser = Value(); break;
+                case "--speed-unit": speed = Value(); break;
+                case "--audio": audio = true; break;
+                case "--mp3": format = "mp3"; break;
+                case "--mp4": format = "mp4"; break;
+                case "--no-playlist": noPlaylist = true; break;
+                case "--quiet": quiet = true; break;
+                case "--verbose":
+                case "-v": verbose = true; break;
+                case "--debug": debug = true; break;
+                case "--print-path": printPath = true; break;
+                case "--no-color": noColor = true; break;
                 default: if (arg.StartsWith('-')) throw new ArgumentException($"Unknown option: {arg}"); else inputs.Add(arg); break;
             }
         }
         return new DownloadRequest(inputs, output, audio, FormatRules.Normalize(format), noPlaylist, cookies, browser, quiet, verbose, debug, printPath, noColor, speed);
     }
-    private static bool ParseBool(string value) => value.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";
-    private static string Shorten(string text) => text.Length <= 72 ? text : text[..69] + "...";
+    private static IRenderable RenderStages(IRenderable progress, IReadOnlyList<StageResult> stages)
+    {
+        var rows = new List<IRenderable> { progress };
+        rows.AddRange(stages.Select(stage => (IRenderable)new Markup($"[{(stage.Success ? "#b8ceb8" : "#d69ba6")}]{(stage.Success ? "✓" : "×")}[/] {Markup.Escape(stage.Name)}" + (string.IsNullOrWhiteSpace(stage.Detail) ? string.Empty : $" [#a99ba0]{Markup.Escape(UiText.Truncate(stage.Detail))}[/]"))));
+        return new Rows(rows);
+    }
+    private static string Describe(string action, string title) => $"[#d6a1ac]{Markup.Escape(action)}[/] {Markup.Escape(title)}";
+    private static string FormatDownloadStats(string? speed, string? eta)
+    {
+        var transfer = new List<string>();
+        if (!string.IsNullOrWhiteSpace(speed)) transfer.Add(speed);
+        if (!string.IsNullOrWhiteSpace(eta)) transfer.Add($"ETA {eta}");
+        return string.Join(" · ", transfer);
+    }
     private static void Error(string message) => AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(message)}");
-    private static void Help() => AnsiConsole.WriteLine("ripmedia — source-format-preserving media downloader\n\nUsage: ripmedia <url> [flags]\n       ripmedia download <url> [flags]\n       ripmedia info <url> [--json] [--formats]\n       ripmedia cookies [list|clear]\n       ripmedia config [path|set key=value]\n       ripmedia update\n\nFlags: --audio --mp3 --format <ext> --output-dir <path> --no-playlist --cookies <file> --cookies-from-browser <spec>");
+    private static void Help() => AnsiConsole.WriteLine("ripmedia — source-format-preserving media downloader\n\nUsage: ripmedia <url> [flags]\n       ripmedia download <url> [flags]\n       ripmedia info <url> [--json] [--formats]\n       ripmedia cookies [list|clear]\n       ripmedia config\n       ripmedia webhost\n       ripmedia update\n\nFlags: --audio --mp3 --mp4 --format <ext> --output-dir <path> --no-playlist --cookies <file> --cookies-from-browser <spec>");
+}
+
+internal sealed class DownloadStatsColumn(Func<string> getText) : ProgressColumn
+{
+    protected override bool NoWrap => true;
+    public override IRenderable Render(RenderOptions options, ProgressTask task, TimeSpan delta) => new Markup($"[#a99ba0]{Markup.Escape(getText())}[/]");
+    public override int? GetColumnWidth(RenderOptions options) => 24;
 }

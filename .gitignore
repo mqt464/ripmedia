@@ -4,4 +4,4 @@ bin/
 obj/
 artifacts/
 TestResults/
-
+src/Ripmedia.Cli/tools/

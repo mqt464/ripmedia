@@ -27,20 +27,26 @@ public sealed class YtDlpClient
 
     public async Task<string> DownloadAsync(MediaItem item, string temporaryDirectory, DownloadRequest request, Action<DownloadProgress>? progress, CancellationToken cancellationToken)
     {
-        var args = new List<string> { "--newline", "--no-warnings", "--write-thumbnail", "--output", Path.Combine(temporaryDirectory, "%(id)s.%(ext)s") };
-        var toolDirectory = Path.GetDirectoryName(_executable);
-        if (!string.IsNullOrWhiteSpace(toolDirectory) && File.Exists(Path.Combine(toolDirectory, "ffmpeg.exe"))) args.AddRange(["--ffmpeg-location", toolDirectory]);
-        AddCookies(args, request.CookieFile, request.BrowserCookies);
-        if (request.AudioOnly && string.IsNullOrWhiteSpace(request.Format)) args.AddRange(["--format", "bestaudio"]);
-        else if (string.IsNullOrWhiteSpace(request.Format)) args.AddRange(["--format", "best"]);
-        else if (FormatRules.IsAudio(request.Format)) args.AddRange(["--extract-audio", "--audio-format", request.Format]);
-        else args.AddRange(["--recode-video", request.Format]);
-        args.Add(item.Url);
-        var result = await ProcessRunner.RunAsync(_executable, args, line => progress?.Invoke(DownloadProgress.Parse(line)), cancellationToken: cancellationToken);
+        var result = await DownloadWithFormatAsync(FormatRules.SelectSourceFormat(request.AudioOnly, request.Format));
+
         if (result.ExitCode != 0) throw new InvalidOperationException(CleanError(result));
         var media = Directory.EnumerateFiles(temporaryDirectory).Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase) && !IsImage(path))
             .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
         return media ?? throw new InvalidOperationException("yt-dlp finished without producing media.");
+
+        async Task<ProcessResult> DownloadWithFormatAsync(string format)
+        {
+            var args = new List<string> { "--newline", "--no-warnings", "--write-thumbnail", "--output", Path.Combine(temporaryDirectory, "%(id)s.%(ext)s") };
+            var toolDirectory = Path.GetDirectoryName(_executable);
+            if (!string.IsNullOrWhiteSpace(toolDirectory) && File.Exists(Path.Combine(toolDirectory, "ffmpeg.exe"))) args.AddRange(["--ffmpeg-location", toolDirectory]);
+            AddCookies(args, request.CookieFile, request.BrowserCookies);
+            if (item.Provider == Provider.YouTube) args.AddRange(await YoutubePoTokenProvider.ArgumentsAsync(toolDirectory, request.CookieFile, request.BrowserCookies, cancellationToken));
+            args.AddRange(["--format", format]);
+            if (!string.IsNullOrWhiteSpace(request.Format) && FormatRules.IsAudio(request.Format)) args.AddRange(["--extract-audio", "--audio-format", request.Format]);
+            else if (!string.IsNullOrWhiteSpace(request.Format)) args.AddRange(["--recode-video", request.Format]);
+            args.Add(item.Url);
+            return await ProcessRunner.RunAsync(_executable, args, line => progress?.Invoke(DownloadProgress.Parse(line)), cancellationToken: cancellationToken);
+        }
     }
 
     private static void AddCookies(List<string> args, string? cookieFile, string? browserCookies)
@@ -53,21 +59,38 @@ public sealed class YtDlpClient
     private static string FindExecutable(string name)
     {
         var local = Path.Combine(AppContext.BaseDirectory, "tools", name); if (File.Exists(local)) return local;
-        return name;
+        var pathEntry = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator).FirstOrDefault(directory => File.Exists(Path.Combine(directory, name)));
+        if (!string.IsNullOrWhiteSpace(pathEntry)) return Path.Combine(pathEntry, name);
+        throw new FileNotFoundException($"Could not find {name}. Run 'dotnet run --project src/Ripmedia.Cli' once while connected to the internet to restore the bundled tools, or install ripmedia from its release bundle.", name);
     }
 }
 
 public sealed record DownloadProgress(double? Percentage, string? Speed, string? Eta)
 {
-    private static readonly Regex Pattern = new(@"\[download\]\s+(?<percent>[\d.]+)%.*?(?:at\s+(?<speed>.+?)\s+ETA\s+(?<eta>\S+))?$", RegexOptions.Compiled);
-    public static DownloadProgress Parse(string line) { var match = Pattern.Match(line); return !match.Success ? new(null, null, null) : new(double.Parse(match.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture), match.Groups["speed"].Success ? match.Groups["speed"].Value : null, match.Groups["eta"].Success ? match.Groups["eta"].Value : null); }
+    private static readonly Regex PercentagePattern = new(@"\[download\]\s+(?<percent>[\d.]+)%", RegexOptions.Compiled);
+    private static readonly Regex SpeedPattern = new(@"\bat\s+(?<speed>\S+)", RegexOptions.Compiled);
+    private static readonly Regex EtaPattern = new(@"\bETA\s+(?<eta>\S+)", RegexOptions.Compiled);
+
+    public static DownloadProgress Parse(string line)
+    {
+        var percentage = PercentagePattern.Match(line);
+        var speed = SpeedPattern.Match(line);
+        var eta = EtaPattern.Match(line);
+        return new(percentage.Success ? double.Parse(percentage.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture) : null,
+            speed.Success ? speed.Groups["speed"].Value : null, eta.Success ? eta.Groups["eta"].Value : null);
+    }
 }
 
 public static class FormatRules
 {
+    public const string BestVideoAndAudio = "bestvideo*+bestaudio/best";
     private static readonly HashSet<string> Audio = new(StringComparer.OrdinalIgnoreCase) { "mp3", "m4a", "aac", "flac", "ogg", "opus", "wav" };
     private static readonly HashSet<string> Video = new(StringComparer.OrdinalIgnoreCase) { "mp4", "mkv", "webm" };
     public static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim().TrimStart('.').ToLowerInvariant();
     public static bool IsSupported(string value) => Audio.Contains(value) || Video.Contains(value);
     public static bool IsAudio(string value) => Audio.Contains(value);
+    public static bool IsVideo(string value) => Video.Contains(value);
+    public static string SelectSourceFormat(bool audioOnly, string? outputFormat) => audioOnly || (outputFormat is not null && IsAudio(outputFormat))
+        ? "bestaudio"
+        : BestVideoAndAudio;
 }

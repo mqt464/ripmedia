@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Ripmedia.Core;
 
@@ -25,6 +26,11 @@ public sealed class ReleaseUpdater(HttpClient client)
         var bin = Path.Combine(root, "bin"); Directory.CreateDirectory(bin); await File.WriteAllTextAsync(Path.Combine(bin, "ripmedia.cmd"), "@echo off\r\n\"" + Path.Combine(target, "ripmedia.exe") + "\" %*\r\n", cancellationToken);
         File.Delete(archive); return release.TagName;
     }
-    private sealed record Release(string TagName, List<Asset> Assets);
-    private sealed record Asset(string Name, string BrowserDownloadUrl);
+    private sealed record Release(
+        [property: JsonPropertyName("tag_name")] string TagName,
+        [property: JsonPropertyName("assets")] List<Asset> Assets);
+
+    private sealed record Asset(
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("browser_download_url")] string BrowserDownloadUrl);
 }
